@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Commerce\Pages\Dashboard;
 use App\Models\Shop;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -57,7 +58,7 @@ class CommercePanelProvider extends PanelProvider
 
             // Pages par défaut
             ->pages([
-                Pages\Dashboard::class,
+                Dashboard::class,
             ])
 
             // Middleware
