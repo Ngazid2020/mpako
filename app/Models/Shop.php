@@ -33,4 +33,28 @@ class Shop extends Model
         return $this->belongsToMany(User::class, 'shop_user')
             ->withTimestamps();
     }
+
+    // ─────────────────────────────────────────────
+    // RELATIONS — Module Stock
+    // ─────────────────────────────────────────────
+
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class);
+    }
+
+    public function units(): HasMany
+    {
+        return $this->hasMany(Unit::class);
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
+    }
 }
