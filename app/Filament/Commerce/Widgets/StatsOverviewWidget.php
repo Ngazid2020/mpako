@@ -67,6 +67,15 @@ class StatsOverviewWidget extends BaseWidget
             ->whereIn('status', ['pending', 'partial'])
             ->count();
 
+        // ── Dettes fournisseurs ──
+        $supplierDebt = $shop->suppliers()
+            ->where('balance', '>', 0)
+            ->sum('balance');
+
+        $supplierDebtCount = $shop->suppliers()
+            ->where('balance', '>', 0)
+            ->count();
+
         return [
             // ── Stat 1 : CA du jour ──
             Stat::make('💰 CA du jour', number_format($todayAmount, 0, ',', ' ') . ' KMF')
@@ -106,6 +115,11 @@ class StatsOverviewWidget extends BaseWidget
                 ->description(number_format($pendingCreditsAmount, 0, ',', ' ') . ' KMF à récupérer')
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color($pendingCreditsCount > 0 ? 'warning' : 'success'),
+
+            Stat::make('🚚 Dettes fournisseurs', $supplierDebtCount . ' fournisseur(s)')
+                ->description(number_format($supplierDebt, 0, ',', ' ') . ' KMF à payer')
+                ->descriptionIcon('heroicon-m-truck')
+                ->color($supplierDebtCount > 0 ? 'warning' : 'success'),
         ];
     }
 

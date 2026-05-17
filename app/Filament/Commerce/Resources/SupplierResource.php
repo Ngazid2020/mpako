@@ -80,10 +80,12 @@ class SupplierResource extends Resource
                     ->money('KMF')
                     ->sortable()
                     ->badge()
-                    ->color(fn (Supplier $record): string =>
+                    ->color(
+                        fn(Supplier $record): string =>
                         $record->balance > 0 ? 'danger' : 'success'
                     )
-                    ->formatStateUsing(fn (Supplier $record): string =>
+                    ->formatStateUsing(
+                        fn(Supplier $record): string =>
                         $record->balance > 0
                             ? number_format($record->balance, 0, ',', ' ') . ' KMF'
                             : 'Aucune dette'
@@ -99,12 +101,13 @@ class SupplierResource extends Resource
 
                 Tables\Filters\Filter::make('has_debt')
                     ->label('Avec dette')
-                    ->query(fn ($query) => $query->where('balance', '>', 0))
+                    ->query(fn($query) => $query->where('balance', '>', 0))
                     ->toggle(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->slideOver(),
+                Tables\Actions\ViewAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -113,11 +116,86 @@ class SupplierResource extends Resource
             ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Fournisseur')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('name')
+                            ->label('Nom')
+                            ->weight('bold'),
+
+                        Infolists\Components\TextEntry::make('phone')
+                            ->label('Téléphone')
+                            ->placeholder('—'),
+
+                        Infolists\Components\TextEntry::make('address')
+                            ->label('Adresse')
+                            ->placeholder('—'),
+
+                        Infolists\Components\TextEntry::make('balance')
+                            ->label('Dette totale')
+                            ->money('KMF')
+                            ->weight('bold')
+                            ->color(
+                                fn(Supplier $record) =>
+                                $record->balance > 0 ? 'danger' : 'success'
+                            ),
+                    ])
+                    ->columns(2),
+
+                // Achats avec dettes non soldées
+                Infolists\Components\Section::make('Achats avec dette en cours')
+                    ->schema([
+                        Infolists\Components\RepeatableEntry::make('purchases')
+                            ->label('')
+                            ->schema([
+                                Infolists\Components\TextEntry::make('reference')
+                                    ->label('Référence')
+                                    ->weight('bold'),
+
+                                Infolists\Components\TextEntry::make('purchased_at')
+                                    ->label('Date')
+                                    ->date('d/m/Y'),
+
+                                Infolists\Components\TextEntry::make('total_amount')
+                                    ->label('Total')
+                                    ->money('KMF'),
+
+                                Infolists\Components\TextEntry::make('debt_amount')
+                                    ->label('Reste dû')
+                                    ->money('KMF')
+                                    ->weight('bold')
+                                    ->color('danger'),
+
+                                Infolists\Components\TextEntry::make('payment_status')
+                                    ->label('Statut')
+                                    ->badge()
+                                    ->formatStateUsing(fn($state) => match ($state) {
+                                        'unpaid'  => '🔴 Non payé',
+                                        'partial' => '🟠 Partiel',
+                                        'paid'    => '✅ Payé',
+                                        default   => $state,
+                                    })
+                                    ->color(fn($state) => match ($state) {
+                                        'unpaid'  => 'danger',
+                                        'partial' => 'warning',
+                                        'paid'    => 'success',
+                                        default   => 'gray',
+                                    }),
+                            ])
+                            ->columns(5),
+                    ]),
+            ]);
+    }
+
     public static function getPages(): array
     {
         return [
             'index'  => Pages\ListSuppliers::route('/'),
             'create' => Pages\CreateSupplier::route('/create'),
+            'view' => Pages\ViewSupplier::route('/{record}'),
         ];
     }
 }

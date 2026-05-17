@@ -6,10 +6,12 @@ use App\Models\Credit;
 use App\Models\CreditPayment;
 use App\Models\Purchase;
 use App\Models\StockMovement;
+use App\Models\SupplierPayment;
 use App\Observers\CreditObserver;
 use App\Observers\CreditPaymentObserver;
 use App\Observers\PurchaseObserver;
 use App\Observers\StockMovementObserver;
+use App\Observers\SupplierPaymentObserver;
 use Carbon\Carbon;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         Purchase::observe(PurchaseObserver::class);
         CreditPayment::observe(CreditPaymentObserver::class);
         Credit::observe(CreditObserver::class);
+        SupplierPayment::observe(SupplierPaymentObserver::class);
 
         // Dates en français
         Carbon::setLocale('fr');

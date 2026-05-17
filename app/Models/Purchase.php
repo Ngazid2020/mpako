@@ -14,6 +14,7 @@ class Purchase extends Model
         'user_id',
         'reference',
         'status',
+        'payment_status',
         'total_amount',
         'paid_amount',
         'debt_amount',
@@ -78,7 +79,7 @@ class Purchase extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending'   => '⏳ En attente',
             'completed' => '✅ Validé',
             'cancelled' => '❌ Annulé',
@@ -88,11 +89,37 @@ class Purchase extends Model
 
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending'   => 'warning',
             'completed' => 'success',
             'cancelled' => 'danger',
             default     => 'gray',
+        };
+    }
+
+    public function supplierPayments(): HasMany
+    {
+        return $this->hasMany(SupplierPayment::class);
+    }
+
+    // Ajouter ces deux accesseurs
+    public function getPaymentStatusLabelAttribute(): string
+    {
+        return match ($this->payment_status) {
+            'unpaid'  => '🔴 Non payé',
+            'partial' => '🟠 Partiellement payé',
+            'paid'    => '✅ Entièrement payé',
+            default   => $this->payment_status,
+        };
+    }
+
+    public function getPaymentStatusColorAttribute(): string
+    {
+        return match ($this->payment_status) {
+            'unpaid'  => 'danger',
+            'partial' => 'warning',
+            'paid'    => 'success',
+            default   => 'gray',
         };
     }
 }
