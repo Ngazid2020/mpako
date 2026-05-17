@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Credit;
+use App\Models\CreditPayment;
 use App\Models\Purchase;
 use App\Models\StockMovement;
+use App\Observers\CreditObserver;
+use App\Observers\CreditPaymentObserver;
 use App\Observers\PurchaseObserver;
 use App\Observers\StockMovementObserver;
 use Carbon\Carbon;
@@ -26,6 +30,9 @@ class AppServiceProvider extends ServiceProvider
     {
         StockMovement::observe(StockMovementObserver::class);
         Purchase::observe(PurchaseObserver::class);
+        CreditPayment::observe(CreditPaymentObserver::class);
+        Credit::observe(CreditObserver::class);
+
         // Dates en français
         Carbon::setLocale('fr');
     }

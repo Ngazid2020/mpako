@@ -81,4 +81,14 @@ class Shop extends Model
     {
         return $this->hasMany(Purchase::class);
     }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
+
+    public function credits(): HasMany
+    {
+        return $this->hasMany(Credit::class);
+    }
 }
