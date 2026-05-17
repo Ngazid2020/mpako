@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             KomorShopSeeder::class,
             StockSeeder::class,
             PurchaseSeeder::class,
+            CreditSeeder::class,
         ]);
     }
 }

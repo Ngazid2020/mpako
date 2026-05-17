@@ -59,6 +59,13 @@ class StatsOverviewWidget extends BaseWidget
                 ->where('status', 'completed')
                 ->sum('total_amount');
         })->toArray();
+        $pendingCreditsAmount = $shop->credits()
+            ->whereIn('status', ['pending', 'partial'])
+            ->sum('remaining_amount');
+
+        $pendingCreditsCount = $shop->credits()
+            ->whereIn('status', ['pending', 'partial'])
+            ->count();
 
         return [
             // ── Stat 1 : CA du jour ──
@@ -94,6 +101,11 @@ class StatsOverviewWidget extends BaseWidget
                         : 'heroicon-m-exclamation-triangle'
                 )
                 ->color($lowStockCount === 0 ? 'success' : 'danger'),
+
+            Stat::make('📒 Crédits en cours', $pendingCreditsCount . ' crédit(s)')
+                ->description(number_format($pendingCreditsAmount, 0, ',', ' ') . ' KMF à récupérer')
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->color($pendingCreditsCount > 0 ? 'warning' : 'success'),
         ];
     }
 
