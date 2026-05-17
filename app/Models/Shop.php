@@ -70,4 +70,15 @@ class Shop extends Model
     {
         return $this->hasMany(SaleItem::class);
     }
+
+
+    public function suppliers(): HasMany
+    {
+        return $this->hasMany(Supplier::class);
+    }
+
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(Purchase::class);
+    }
 }
