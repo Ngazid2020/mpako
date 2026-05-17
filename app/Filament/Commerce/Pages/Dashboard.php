@@ -2,6 +2,7 @@
 
 namespace App\Filament\Commerce\Pages;
 
+use App\Filament\Commerce\Widgets\ExpensesWidget;
 use App\Filament\Commerce\Widgets\LowStockWidget;
 use App\Filament\Commerce\Widgets\SalesChartWidget;
 use App\Filament\Commerce\Widgets\StatsOverviewWidget;
@@ -30,8 +31,9 @@ class Dashboard extends BaseDashboard
     {
         return [
             StatsOverviewWidget::class, // Stats KPI — pleine largeur
-            SalesChartWidget::class,    // Graphique — colonne gauche
+            SalesChartWidget::class,
             TopProductsWidget::class,   // Top produits — colonne droite
+            ExpensesWidget::class,    // Graphique — colonne gauche
             LowStockWidget::class,      // Stock bas — pleine largeur
         ];
     }

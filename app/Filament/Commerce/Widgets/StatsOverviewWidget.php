@@ -76,6 +76,17 @@ class StatsOverviewWidget extends BaseWidget
             ->where('balance', '>', 0)
             ->count();
 
+        // ── Dépenses du jour ──
+        $todayExpenses = $shop->expenses()
+            ->whereDate('spent_at', today())
+            ->sum('amount');
+
+        // ── Dépenses du mois ──
+        $monthExpenses = $shop->expenses()
+            ->whereMonth('spent_at', now()->month)
+            ->whereYear('spent_at', now()->year)
+            ->sum('amount');
+
         return [
             // ── Stat 1 : CA du jour ──
             Stat::make('💰 CA du jour', number_format($todayAmount, 0, ',', ' ') . ' KMF')
@@ -120,6 +131,11 @@ class StatsOverviewWidget extends BaseWidget
                 ->description(number_format($supplierDebt, 0, ',', ' ') . ' KMF à payer')
                 ->descriptionIcon('heroicon-m-truck')
                 ->color($supplierDebtCount > 0 ? 'warning' : 'success'),
+
+            Stat::make('💳 Dépenses du mois', number_format($monthExpenses, 0, ',', ' ') . ' KMF')
+                ->description('Dont ' . number_format($todayExpenses, 0, ',', ' ') . ' KMF aujourd\'hui')
+                ->descriptionIcon('heroicon-m-arrow-trending-down')
+                ->color('danger'),
         ];
     }
 

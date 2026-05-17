@@ -91,4 +91,14 @@ class Shop extends Model
     {
         return $this->hasMany(Credit::class);
     }
+
+    public function expenseCategories(): HasMany
+    {
+        return $this->hasMany(ExpenseCategory::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
 }

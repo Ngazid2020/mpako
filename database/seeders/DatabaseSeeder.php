@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             StockSeeder::class,
             PurchaseSeeder::class,
             CreditSeeder::class,
+            ExpenseSeeder::class,
         ]);
     }
 }
