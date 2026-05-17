@@ -57,4 +57,17 @@ class Shop extends Model
     {
         return $this->hasMany(StockMovement::class);
     }
+
+    // app/Models/Shop.php
+    // Ajouter ces deux relations
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
+
+    public function saleItems(): HasMany
+    {
+        return $this->hasMany(SaleItem::class);
+    }
 }
