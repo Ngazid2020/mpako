@@ -80,7 +80,7 @@
                     <span class="text-gray-800">🇰🇲 Made in Comores</span>
                 </div>
 
-                <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black text-gray-900 leading-[0.95] mb-6 tracking-tight">
+                <h1 class="text-4xl sm:text-6xl lg:text-6xl font-black text-gray-900 leading-[0.95] mb-6 tracking-tight">
                     <span class="split-text block">Gère ton commerce</span>
                     <span class="split-text block gradient-text">comme un pro</span>
                 </h1>
