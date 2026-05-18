@@ -96,7 +96,7 @@
                         <a href="/commerce/register" class="hero-cta magnetic btn-shine relative inline-block bg-gradient-to-r from-primary-600 via-cyan-600 to-emerald-600 text-white font-black px-8 py-5 rounded-2xl shadow-2xl text-center text-lg glow">
                             <span class="relative z-10">Démarrer gratuitement →</span>
                         </a>
-                        <span class="pulse-ring bg-gradient-to-r from-primary-600 to-cyan-600 rounded-2xl"></span>
+                        <span class="bg-gradient-to-r from-primary-600 to-cyan-600 rounded-2xl"></span>
                     </div>
 
                     <a href="#features" class="hero-cta magnetic glass text-gray-800 font-bold px-8 py-5 rounded-2xl text-center text-lg">
