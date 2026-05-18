@@ -1,3 +1,140 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════
+   LANDING PAGE — Styles personnalisés
+   ═══════════════════════════════════════════════════════════ */
+
+@layer utilities {
+    /* Gradient text animé */
+    .gradient-text {
+        background: linear-gradient(120deg, #2563eb, #06b6d4, #10b981, #2563eb);
+        background-size: 300% 300%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: gradientShift 6s ease infinite;
+    }
+
+    @keyframes gradientShift {
+        0%,
+        100% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
+    }
+
+    /* Grille de points en background */
+    .dots-pattern {
+        background-image: radial-gradient(
+            circle,
+            rgba(59, 130, 246, 0.15) 1.5px,
+            transparent 1.5px
+        );
+        background-size: 30px 30px;
+    }
+
+    /* Mesh gradient blob */
+    .blob {
+        filter: blur(60px);
+        opacity: 0.5;
+        z-index: 0;
+    }
+
+    /* Card 3D — transitions */
+    .card-3d {
+        transition:
+            transform 0.3s ease-out,
+            box-shadow 0.3s ease-out;
+        transform-style: preserve-3d;
+    }
+
+    /* Bouton avec effet shine */
+    .btn-shine {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-shine::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent
+        );
+        transition: left 0.6s ease;
+    }
+
+    .btn-shine:hover::before {
+        left: 100%;
+    }
+
+    /* Glow effect */
+    .glow {
+        box-shadow:
+            0 0 20px rgba(59, 130, 246, 0.3),
+            0 0 40px rgba(59, 130, 246, 0.2),
+            0 0 60px rgba(59, 130, 246, 0.1);
+    }
+
+    /* Animation flottante */
+    .float {
+        animation: floating 6s ease-in-out infinite;
+    }
+
+    @keyframes floating {
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+
+    .float-delayed {
+        animation: floating 6s ease-in-out infinite;
+        animation-delay: 2s;
+    }
+
+    /* FAQ accordéon */
+    .faq-content {
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .faq-item:not([open]) .faq-content {
+        display: none;
+    }
+
+    /* Bouton avec ring pulsant */
+    .pulse-container {
+        position: relative;
+    }
+
+    .pulse-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: inherit;
+        z-index: -1;
+    }
+
+    /* Hide scrollbar but allow scroll */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
