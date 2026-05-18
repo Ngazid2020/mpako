@@ -41,7 +41,7 @@ class CommercePanelProvider extends PanelProvider
 
             // Nom visible
             ->brandName('KomorShop')
-
+            ->viteTheme('resources/css/filament/commerce/theme.css')
             // ──────────────────────────────────────
             // MULTITENANCY : La clé de tout !
             // ──────────────────────────────────────
