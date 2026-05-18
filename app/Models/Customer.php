@@ -36,6 +36,10 @@ class Customer extends Model
         return $this->hasMany(Credit::class);
     }
 
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
     // ─────────────────────────────────────────────
     // ACCESSEURS
     // ─────────────────────────────────────────────

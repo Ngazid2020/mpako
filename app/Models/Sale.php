@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Sale extends Model
 {
@@ -17,6 +18,8 @@ class Sale extends Model
         'paid_amount',
         'change_amount',
         'note',
+        'customer_id',
+        'payment_type',
     ];
 
     protected $casts = [
@@ -42,6 +45,16 @@ class Sale extends Model
     public function items(): HasMany
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function credit(): HasOne
+    {
+        return $this->hasOne(Credit::class);
     }
 
     // ─────────────────────────────────────────────
@@ -71,7 +84,7 @@ class Sale extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'completed' => '✅ Complétée',
             'cancelled' => '❌ Annulée',
             default     => $this->status,

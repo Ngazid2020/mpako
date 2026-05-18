@@ -3,6 +3,8 @@
 namespace App\Filament\Commerce\Pages;
 
 use App\Filament\Commerce\Resources\SaleResource;
+use App\Models\Credit;
+use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -24,6 +26,18 @@ class Caisse extends Page
 
     protected static string $view = 'filament.commerce.pages.caisse';
 
+
+    // Modal crédit
+    public bool $showCreditModal = false;
+
+    // Client sélectionné
+    public ?int $selectedCustomerId = null;
+
+    // Échéance optionnelle
+    public ?string $creditDueDate = null;
+
+    // Note crédit
+    public string $creditNote = '';
     // ─────────────────────────────────────────────
     // PROPRIÉTÉS LIVEWIRE (état de la page)
     // ─────────────────────────────────────────────
@@ -300,5 +314,134 @@ class Caisse extends Page
                 ->color('gray')
                 ->url(fn() => SaleResource::getUrl('index')),
         ];
+    }
+
+    public function openCreditModal(): void
+    {
+        if (empty($this->cart)) {
+            Notification::make()
+                ->title('Panier vide')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->showCreditModal = true;
+    }
+
+    public function completeCreditSale(): void
+    {
+        // Validation
+        if (!$this->selectedCustomerId) {
+            Notification::make()
+                ->title('Sélectionnez un client')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if (empty($this->cart)) {
+            return;
+        }
+
+        $shop = Filament::getTenant();
+
+        $total = $this->getTotal();
+
+        // ─────────────────────────────
+        // 1. Créer la vente
+        // ─────────────────────────────
+
+        $sale = Sale::create([
+            'shop_id'       => $shop->id,
+            'user_id'       => auth()->id(),
+            'customer_id'   => $this->selectedCustomerId,
+            'payment_type'  => 'credit',
+            'reference'     => Sale::generateReference($shop->id),
+            'status'        => 'completed',
+
+            // Vente à crédit
+            'total_amount'  => $total,
+            'paid_amount'   => 0,
+            'change_amount' => 0,
+        ]);
+
+        // ─────────────────────────────
+        // 2. Créer les lignes
+        // ─────────────────────────────
+
+        foreach ($this->cart as $item) {
+
+            SaleItem::create([
+                'sale_id'      => $sale->id,
+                'product_id'   => $item['product_id'],
+                'product_name' => $item['product_name'],
+                'quantity'     => $item['quantity'],
+                'unit_price'   => $item['unit_price'],
+                'subtotal'     => $item['subtotal'],
+            ]);
+
+            // Déduction stock
+            StockMovement::create([
+                'shop_id'    => $shop->id,
+                'product_id' => $item['product_id'],
+                'user_id'    => auth()->id(),
+                'type'       => 'out',
+                'quantity'   => $item['quantity'],
+                'reason'     => "Vente crédit {$sale->reference}",
+            ]);
+        }
+
+        // ─────────────────────────────
+        // 3. Créer le crédit lié
+        // ─────────────────────────────
+
+        Credit::create([
+            'shop_id'          => $shop->id,
+            'sale_id'          => $sale->id,
+            'customer_id'      => $this->selectedCustomerId,
+            'user_id'          => auth()->id(),
+
+            'reference'        => Credit::generateReference($shop->id),
+
+            'status'           => 'pending',
+
+            'total_amount'     => $total,
+            'paid_amount'      => 0,
+            'remaining_amount' => $total,
+
+            'due_date'         => $this->creditDueDate,
+
+            'description'      => 'Vente à crédit depuis la caisse',
+
+            'note'             => $this->creditNote,
+        ]);
+
+        // ─────────────────────────────
+        // 4. Succès
+        // ─────────────────────────────
+
+        $customer = Customer::find($this->selectedCustomerId);
+
+        Notification::make()
+            ->title('✅ Vente à crédit enregistrée')
+            ->body(
+                $customer->name
+                    . ' doit '
+                    . number_format($total, 0, ',', ' ')
+                    . ' KMF'
+            )
+            ->success()
+            ->send();
+
+        // Reset
+        $this->clearCart();
+
+        $this->showCreditModal   = false;
+        $this->selectedCustomerId = null;
+        $this->creditDueDate      = null;
+        $this->creditNote         = '';
     }
 }

@@ -20,6 +20,7 @@ class Credit extends Model
         'due_date',
         'description',
         'note',
+        'sale_id',
     ];
 
     protected $casts = [
@@ -53,6 +54,11 @@ class Credit extends Model
         return $this->hasMany(CreditPayment::class);
     }
 
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
+    }
+
     // ─────────────────────────────────────────────
     // METHODES STATIQUES
     // ─────────────────────────────────────────────
@@ -75,7 +81,7 @@ class Credit extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => '🔴 Non remboursé',
             'partial' => '🟠 Partiellement remboursé',
             'paid'    => '✅ Soldé',
@@ -85,7 +91,7 @@ class Credit extends Model
 
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'danger',
             'partial' => 'warning',
             'paid'    => 'success',
