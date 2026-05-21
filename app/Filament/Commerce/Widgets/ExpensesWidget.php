@@ -10,7 +10,7 @@ use Illuminate\Testing\Fluent\Concerns\Has;
 
 class ExpensesWidget extends Widget
 {
-    // use HasShieldPermission;
+    use HasShieldPermission;
     protected static ?int    $sort            = 5;
     protected static ?string $pollingInterval = '60s';
 
