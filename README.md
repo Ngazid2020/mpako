@@ -64,3 +64,5 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+Get-ChildItem -Path app\Models,app\Http,routes,database\migrations,app\filament\Admin\resources,app\filament\Commerce\resources,resources\views -Recurse -Include "*.php","*.blade.php" | ForEach-Object { "`n===== $($_.FullName) =====`n" + (Get-Content $_.FullName -Raw) } | Out-File -FilePath output.txt -Encoding utf8
