@@ -2,13 +2,21 @@
 
 namespace App\Filament\Commerce\Widgets;
 
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
-class StatsOverviewWidget extends BaseWidget
+class StatsOverviewWidget extends BaseWidget implements HasShieldPermissions
 {
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            'view',
+        ];
+    }
+
     // Rafraîchissement automatique toutes les 30 secondes
     protected static ?string $pollingInterval = '30s';
     protected int | string | array $columnSpan = 'full';
@@ -177,5 +185,22 @@ class StatsOverviewWidget extends BaseWidget
             'icon'  => 'heroicon-m-minus',
             'color' => 'gray',
         ];
+    }
+
+    // public static function canView(): bool
+    // {
+    //     return auth()->user()?->can('widget_StatsOverviewWidget') ?? false;
+    // }
+
+    public static function canView(): bool
+    {
+        // Cacher du panel admin
+        if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin') {
+            return false;
+        }
+
+        // Vérifier la permission Shield dans les autres panels
+        $className  = class_basename(static::class);
+        return auth()->user()?->can("widget_{$className}") ?? false;
     }
 }

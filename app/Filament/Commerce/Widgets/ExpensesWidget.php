@@ -2,12 +2,15 @@
 
 namespace App\Filament\Commerce\Widgets;
 
+use App\Traits\HasShieldPermission;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
+use Illuminate\Testing\Fluent\Concerns\Has;
 
 class ExpensesWidget extends Widget
 {
+    // use HasShieldPermission;
     protected static ?int    $sort            = 5;
     protected static ?string $pollingInterval = '60s';
 
@@ -17,6 +20,8 @@ class ExpensesWidget extends Widget
 
     public string $period = 'month';
 
+
+    
     public function getExpensesByCategory(): Collection
     {
         $shop = Filament::getTenant();
@@ -25,7 +30,7 @@ class ExpensesWidget extends Widget
             ->with('category');
 
         // Filtre période
-        $query = match($this->period) {
+        $query = match ($this->period) {
             'today' => $query->whereDate('spent_at', today()),
             'week'  => $query->whereBetween('spent_at', [
                 now()->startOfWeek(),
@@ -55,7 +60,7 @@ class ExpensesWidget extends Widget
         $shop  = Filament::getTenant();
         $query = $shop->expenses();
 
-        $query = match($this->period) {
+        $query = match ($this->period) {
             'today' => $query->whereDate('spent_at', today()),
             'week'  => $query->whereBetween('spent_at', [
                 now()->startOfWeek(),

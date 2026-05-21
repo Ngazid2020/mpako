@@ -10,13 +10,24 @@ class SalesChartWidget extends ChartWidget
     protected static ?string $heading     = '📈 Ventes des 7 derniers jours';
     protected static ?int    $sort        = 2;
     protected static ?string $pollingInterval = '60s';
-    protected int | string | array $columnSpan = 1; 
+    protected int | string | array $columnSpan = 1;
     // Hauteur du graphique
     protected static ?string $maxHeight = '250px';
 
     // Filtre de période (optionnel — Filament gère l'UI)
     public ?string $filter = '7days';
 
+    public static function canView(): bool
+    {
+        // Cacher du panel admin
+        if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin') {
+            return false;
+        }
+
+        // Vérifier la permission Shield dans les autres panels
+        $className  = class_basename(static::class);
+        return auth()->user()?->can("widget_{$className}") ?? false;
+    }
     protected function getFilters(): ?array
     {
         return [
@@ -31,7 +42,7 @@ class SalesChartWidget extends ChartWidget
         $shop = Filament::getTenant();
 
         // Déterminer le nombre de jours selon le filtre
-        $days = match($this->filter) {
+        $days = match ($this->filter) {
             '30days' => 30,
             '90days' => 90,
             default  => 7,
@@ -73,7 +84,7 @@ class SalesChartWidget extends ChartWidget
                     'fill'            => true,
                     'tension'         => 0.4, // Courbe lissée
                     'pointRadius'     => 4,
-                    'pointHoverRadius'=> 6,
+                    'pointHoverRadius' => 6,
                 ],
             ],
             'labels' => $labels,

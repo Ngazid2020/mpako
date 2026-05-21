@@ -11,11 +11,24 @@ class LowStockWidget extends Widget
 {
     protected static ?int    $sort            = 4;
     protected static ?string $pollingInterval = '60s';
-    
+
     // Ce widget prend toute la largeur
     protected int | string | array $columnSpan = 'full';
 
     protected static string $view = 'filament.commerce.widgets.low-stock-widget';
+
+
+    public static function canView(): bool
+    {
+        // Cacher du panel admin
+        if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin') {
+            return false;
+        }
+
+        // Vérifier la permission Shield dans les autres panels
+        $className  = class_basename(static::class);
+        return auth()->user()?->can("widget_{$className}") ?? false;
+    }
 
     public function getLowStockProducts(): Collection
     {
