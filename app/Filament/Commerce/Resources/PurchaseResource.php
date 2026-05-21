@@ -3,6 +3,7 @@
 namespace App\Filament\Commerce\Resources;
 
 use App\Filament\Commerce\Resources\PurchaseResource\Pages;
+use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\SupplierPayment;
 use Filament\Facades\Filament;
@@ -27,59 +28,88 @@ class PurchaseResource extends Resource
     protected static ?string $pluralModelLabel = 'Achats';
     protected static ?int    $navigationSort   = 1;
 
+    // ═══════════════════════════════════════════════
+    // FORMULAIRE
+    // ═══════════════════════════════════════════════
+
     public static function form(Form $form): Form
     {
-        $shop = Filament::getTenant();
-
         return $form
             ->schema([
 
-                // ── Section principale ──
+                // ─────────────────────────────────────
+                // SECTION : Informations de l'achat
+                // ─────────────────────────────────────
                 Forms\Components\Section::make('Informations de l\'achat')
                     ->icon('heroicon-o-shopping-bag')
                     ->schema([
 
+                        // Sélecteur de fournisseur
                         Forms\Components\Select::make('supplier_id')
                             ->label('Fournisseur')
-                            ->options(
-                                fn() => $shop->suppliers()
+                            ->options(function () {
+                                $shop = Filament::getTenant();
+                                if (!$shop) return [];
+
+                                return $shop->suppliers()
                                     ->where('is_active', true)
-                                    ->pluck('name', 'id')
-                            )
+                                    ->pluck('name', 'id');
+                            })
                             ->searchable()
+                            ->preload()
                             ->native(false)
                             ->placeholder('Sélectionner un fournisseur...')
-                            // Créer un fournisseur directement depuis le select
                             ->createOptionForm([
                                 Forms\Components\TextInput::make('name')
                                     ->label('Nom du fournisseur')
-                                    ->required(),
+                                    ->required()
+                                    ->maxLength(255),
                                 Forms\Components\TextInput::make('phone')
                                     ->label('Téléphone')
                                     ->tel(),
                             ])
-                            ->createOptionUsing(function (array $data) use ($shop) {
+                            ->createOptionUsing(function (array $data) {
+                                $shop = Filament::getTenant();
+                                if (!$shop) {
+                                    throw new \Exception('Aucun commerce sélectionné');
+                                }
                                 return $shop->suppliers()->create($data)->id;
                             }),
 
+                        // Date d'achat
                         Forms\Components\DatePicker::make('purchased_at')
                             ->label('Date d\'achat')
                             ->required()
                             ->default(today())
+                            ->maxDate(today())
                             ->native(false)
                             ->displayFormat('d/m/Y'),
 
+                        // Statut — verrouillé après validation
                         Forms\Components\Select::make('status')
                             ->label('Statut')
-                            ->options([
-                                'pending'   => '⏳ En attente',
-                                'completed' => '✅ Valider et mettre à jour le stock',
-                            ])
+                            ->options(function (?Purchase $record) {
+                                // Si déjà validé, verrouiller
+                                if ($record?->status === 'completed') {
+                                    return ['completed' => '✅ Validé (verrouillé)'];
+                                }
+                                return [
+                                    'pending'   => '⏳ En attente',
+                                    'completed' => '✅ Valider et mettre à jour le stock',
+                                ];
+                            })
                             ->default('pending')
                             ->required()
                             ->native(false)
-                            ->helperText('Valider = le stock est mis à jour automatiquement'),
+                            ->disabled(fn (?Purchase $record) => $record?->status === 'completed')
+                            ->helperText(function (?Purchase $record) {
+                                if ($record?->status === 'completed') {
+                                    return '🔒 Cet achat est verrouillé. Pour annuler, utilisez l\'action depuis la liste.';
+                                }
+                                return 'Valider = le stock est mis à jour automatiquement';
+                            }),
 
+                        // Note
                         Forms\Components\Textarea::make('note')
                             ->label('Note')
                             ->placeholder('Informations supplémentaires...')
@@ -88,43 +118,53 @@ class PurchaseResource extends Resource
                     ])
                     ->columns(2),
 
-                // ── Section produits achetés ──
+                // ─────────────────────────────────────
+                // SECTION : Produits achetés
+                // ─────────────────────────────────────
                 Forms\Components\Section::make('Produits achetés')
                     ->icon('heroicon-o-cube')
                     ->schema([
                         Forms\Components\Repeater::make('items')
                             ->label('')
                             ->relationship('items')
+                            ->required()
+                            ->minItems(1)
+                            ->validationMessages([
+                                'min' => 'Vous devez ajouter au moins un produit.',
+                                'required' => 'Vous devez ajouter au moins un produit.',
+                            ])
                             ->schema([
-                                // Sélecteur de produit
+                                // Sélecteur de produit avec stock affiché
                                 Forms\Components\Select::make('product_id')
                                     ->label('Produit')
-                                    ->options(
-                                        fn() => $shop->products()
+                                    ->options(function () {
+                                        $shop = Filament::getTenant();
+                                        if (!$shop) return [];
+
+                                        return $shop->products()
                                             ->where('is_active', true)
-                                            ->pluck('name', 'id')
-                                    )
+                                            ->with('unit')
+                                            ->get()
+                                            ->mapWithKeys(fn ($p) => [
+                                                $p->id => "{$p->name} (stock : {$p->stock_qty} {$p->unit?->abbreviation})"
+                                            ]);
+                                    })
                                     ->required()
                                     ->searchable()
                                     ->native(false)
                                     ->live()
-                                    ->afterStateUpdated(function (
-                                        $state,
-                                        Set $set
-                                    ) {
+                                    ->afterStateUpdated(function ($state, Set $set) {
                                         if (!$state) return;
 
-                                        $product = \App\Models\Product::find($state);
-
+                                        $product = Product::find($state);
                                         if ($product) {
-                                            // Pré-remplir le nom et le coût unitaire
                                             $set('product_name', $product->name);
                                             $set('unit_cost', $product->buy_price);
                                         }
                                     })
                                     ->columnSpan(4),
 
-                                // Quantité achetée
+                                // Quantité
                                 Forms\Components\TextInput::make('quantity')
                                     ->label('Quantité')
                                     ->numeric()
@@ -132,45 +172,35 @@ class PurchaseResource extends Resource
                                     ->default(1)
                                     ->minValue(0.01)
                                     ->live(debounce: 500)
-                                    ->afterStateUpdated(function (
-                                        $state,
-                                        Get $get,
-                                        Set $set
-                                    ) {
-                                        // Recalculer le sous-total
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                         $set('subtotal', (float) $state * (float) $get('unit_cost'));
                                     })
                                     ->columnSpan(2),
 
                                 // Coût unitaire
                                 Forms\Components\TextInput::make('unit_cost')
-                                    ->label('Coût unitaire (KMF)')
+                                    ->label('Coût unitaire')
                                     ->numeric()
                                     ->required()
                                     ->default(0)
                                     ->minValue(0)
                                     ->suffix('KMF')
                                     ->live(debounce: 500)
-                                    ->afterStateUpdated(function (
-                                        $state,
-                                        Get $get,
-                                        Set $set
-                                    ) {
-                                        // Recalculer le sous-total
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                         $set('subtotal', (float) $state * (float) $get('quantity'));
                                     })
                                     ->columnSpan(2),
 
-                                // Sous-total (calculé automatiquement)
+                                // Sous-total
                                 Forms\Components\TextInput::make('subtotal')
-                                    ->label('Sous-total (KMF)')
+                                    ->label('Sous-total')
                                     ->numeric()
                                     ->disabled()
                                     ->dehydrated(true)
                                     ->suffix('KMF')
                                     ->columnSpan(2),
 
-                                // Champ caché pour le nom du produit
+                                // Champ caché
                                 Forms\Components\Hidden::make('product_name'),
                             ])
                             ->columns(10)
@@ -179,23 +209,33 @@ class PurchaseResource extends Resource
                             ->live()
                             ->afterStateUpdated(function (Get $get, Set $set) {
                                 self::recalculateTotals($get, $set);
-                            }),
+                            })
+                            // FIX : Recalculer après suppression d'une ligne
+                            ->deleteAction(
+                                fn (Forms\Components\Actions\Action $action) => $action->after(
+                                    fn (Get $get, Set $set) => self::recalculateTotals($get, $set)
+                                )
+                            ),
                     ]),
 
-                // ── Section paiement ──
+                // ─────────────────────────────────────
+                // SECTION : Paiement
+                // ─────────────────────────────────────
                 Forms\Components\Section::make('Paiement')
                     ->icon('heroicon-o-banknotes')
                     ->schema([
+
                         Forms\Components\TextInput::make('total_amount')
                             ->label('Total de l\'achat')
                             ->numeric()
                             ->disabled()
                             ->dehydrated(true)
                             ->suffix('KMF')
-                            ->helperText('Calculé automatiquement'),
+                            ->helperText('Calculé automatiquement')
+                            ->extraInputAttributes(['class' => 'font-bold text-lg']),
 
                         Forms\Components\TextInput::make('paid_amount')
-                            ->label('Montant payé (KMF)')
+                            ->label('Montant payé')
                             ->numeric()
                             ->default(0)
                             ->minValue(0)
@@ -203,7 +243,26 @@ class PurchaseResource extends Resource
                             ->live(debounce: 500)
                             ->afterStateUpdated(function (Get $get, Set $set) {
                                 self::recalculateTotals($get, $set);
-                            }),
+                            })
+                            // FIX : Ne peut pas dépasser le total
+                            ->rule(function (Get $get) {
+                                return function (string $attribute, $value, $fail) use ($get) {
+                                    $total = (float) $get('total_amount');
+                                    if ((float) $value > $total) {
+                                        $fail("Le montant payé ne peut pas dépasser le total ({$total} KMF).");
+                                    }
+                                };
+                            })
+                            // Bouton "Tout payer"
+                            ->hintAction(
+                                Forms\Components\Actions\Action::make('payAll')
+                                    ->label('Tout payer')
+                                    ->icon('heroicon-m-banknotes')
+                                    ->action(function (Get $get, Set $set) {
+                                        $set('paid_amount', $get('total_amount'));
+                                        self::recalculateTotals($get, $set);
+                                    })
+                            ),
 
                         Forms\Components\TextInput::make('debt_amount')
                             ->label('Reste à payer (dette)')
@@ -217,19 +276,15 @@ class PurchaseResource extends Resource
             ]);
     }
 
-    // ─────────────────────────────────────────────
+    // ═══════════════════════════════════════════════
     // HELPER : Recalculer les totaux
-    // ─────────────────────────────────────────────
+    // ═══════════════════════════════════════════════
 
     public static function recalculateTotals(Get $get, Set $set): void
     {
         $items = $get('items') ?? [];
 
-        // Total = somme des sous-totaux
-        $total = collect($items)->sum(
-            fn($item) =>
-            (float) ($item['subtotal'] ?? 0)
-        );
+        $total = collect($items)->sum(fn ($item) => (float) ($item['subtotal'] ?? 0));
 
         $paid = (float) ($get('paid_amount') ?? 0);
         $debt = max(0, $total - $paid);
@@ -237,6 +292,10 @@ class PurchaseResource extends Resource
         $set('total_amount', $total);
         $set('debt_amount', $debt);
     }
+
+    // ═══════════════════════════════════════════════
+    // TABLEAU
+    // ═══════════════════════════════════════════════
 
     public static function table(Table $table): Table
     {
@@ -258,6 +317,14 @@ class PurchaseResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
 
+                // Compteur de produits
+                Tables\Columns\TextColumn::make('items_count')
+                    ->label('Produits')
+                    ->counts('items')
+                    ->badge()
+                    ->color('info')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Total')
                     ->money('KMF')
@@ -266,26 +333,26 @@ class PurchaseResource extends Resource
 
                 Tables\Columns\TextColumn::make('paid_amount')
                     ->label('Payé')
-                    ->money('KMF'),
+                    ->money('KMF')
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('debt_amount')
                     ->label('Reste dû')
                     ->money('KMF')
                     ->badge()
-                    ->color(
-                        fn(Purchase $record): string =>
+                    ->color(fn (Purchase $record): string =>
                         $record->debt_amount > 0 ? 'danger' : 'success'
                     ),
-                // Après la colonne debt_amount
+
                 Tables\Columns\BadgeColumn::make('payment_status')
                     ->label('Paiement')
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'unpaid'  => '🔴 Non payé',
                         'partial' => '🟠 Partiel',
                         'paid'    => '✅ Payé',
                         default   => $state,
                     })
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'unpaid'  => 'danger',
                         'partial' => 'warning',
                         'paid'    => 'success',
@@ -294,77 +361,143 @@ class PurchaseResource extends Resource
 
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Statut')
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
                         'pending'   => '⏳ En attente',
                         'completed' => '✅ Validé',
                         'cancelled' => '❌ Annulé',
                         default     => $state,
                     })
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'pending'   => 'warning',
                         'completed' => 'success',
                         'cancelled' => 'danger',
                         default     => 'gray',
                     }),
+
+                // Compteur de paiements (caché par défaut)
+                Tables\Columns\TextColumn::make('supplier_payments_count')
+                    ->label('Paiements')
+                    ->counts('supplierPayments')
+                    ->badge()
+                    ->color('success')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('purchased_at', 'desc')
+            // Tri intelligent : pending d'abord, puis date desc
+            ->defaultSort(function ($query) {
+                return $query
+                    ->orderByRaw("FIELD(status, 'pending', 'completed', 'cancelled')")
+                    ->orderBy('purchased_at', 'desc');
+            })
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
-                    ->label('Statut')
+                    ->label('Statut stock')
                     ->options([
-                        'pending'   => 'En attente',
-                        'completed' => 'Validés',
-                        'cancelled' => 'Annulés',
+                        'pending'   => '⏳ En attente',
+                        'completed' => '✅ Validés',
+                        'cancelled' => '❌ Annulés',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('payment_status')
+                    ->label('Statut paiement')
+                    ->options([
+                        'unpaid'  => '🔴 Non payé',
+                        'partial' => '🟠 Partiel',
+                        'paid'    => '✅ Payé',
                     ]),
 
                 Tables\Filters\SelectFilter::make('supplier')
                     ->label('Fournisseur')
-                    ->relationship('supplier', 'name'),
+                    ->relationship('supplier', 'name')
+                    ->searchable()
+                    ->preload(),
 
                 Tables\Filters\Filter::make('today')
                     ->label("Aujourd'hui")
-                    ->query(fn($query) => $query->whereDate('purchased_at', today()))
+                    ->query(fn ($query) => $query->whereDate('purchased_at', today()))
+                    ->toggle(),
+
+                Tables\Filters\Filter::make('has_debt')
+                    ->label('Avec dette')
+                    ->query(fn ($query) => $query->where('debt_amount', '>', 0))
                     ->toggle(),
             ])
             ->actions([
-                // Action rapide pour valider un achat en attente
+
+                // ─── Action : Valider (mettre à jour le stock) ───
                 Tables\Actions\Action::make('complete')
                     ->label('Valider')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Valider cet achat ?')
-                    ->modalDescription('Le stock de tous les produits sera mis à jour automatiquement.')
+                    ->modalDescription('Le stock de tous les produits sera mis à jour automatiquement. Cette action est irréversible.')
                     ->modalSubmitActionLabel('Oui, valider')
-                    ->visible(fn(Purchase $record): bool => $record->status === 'pending')
+                    ->modalIcon('heroicon-o-check-circle')
+                    ->modalIconColor('success')
+                    ->visible(fn (Purchase $record): bool => $record->status === 'pending')
                     ->action(function (Purchase $record): void {
                         $record->update(['status' => 'completed']);
+
+                        Notification::make()
+                            ->title('✅ Achat validé')
+                            ->body("Le stock a été mis à jour.")
+                            ->success()
+                            ->send();
                     }),
 
-                // Action pour annuler
+                // ─── Action : Annuler ───
                 Tables\Actions\Action::make('cancel')
                     ->label('Annuler')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn(Purchase $record): bool => $record->status === 'pending')
+                    ->modalHeading('Annuler cet achat ?')
+                    ->modalDescription(function (Purchase $record) {
+                        $msg = 'Cette action retire l\'achat de votre historique actif.';
+                        if ($record->status === 'completed') {
+                            $msg .= ' Le stock sera diminué en conséquence.';
+                        }
+                        if ($record->debt_amount > 0) {
+                            $msg .= ' La dette fournisseur sera également annulée.';
+                        }
+                        return $msg;
+                    })
+                    ->visible(fn (Purchase $record): bool =>
+                        in_array($record->status, ['pending', 'completed'])
+                    )
                     ->action(function (Purchase $record): void {
+                        // FIX : Libérer la dette fournisseur lors de l'annulation
+                        if ($record->supplier_id && $record->debt_amount > 0) {
+                            $record->supplier->decrement('balance', $record->debt_amount);
+                        }
+
                         $record->update(['status' => 'cancelled']);
+
+                        Notification::make()
+                            ->title('Achat annulé')
+                            ->success()
+                            ->send();
                     }),
-                // Action : Payer la dette fournisseur
+
+                // ─── Action : Payer la dette fournisseur ───
                 Tables\Actions\Action::make('pay_debt')
                     ->label('Payer')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    // Visible seulement si l'achat est complété ET qu'il reste une dette
-                    ->visible(
-                        fn(Purchase $record): bool =>
-                        $record->status === 'completed'
-                            && $record->debt_amount > 0
+                    ->visible(fn (Purchase $record): bool =>
+                        $record->status === 'completed' && $record->debt_amount > 0
                     )
+                    ->modalHeading(fn (Purchase $record) =>
+                        "Payer la dette — {$record->reference}"
+                    )
+                    ->modalDescription(fn (Purchase $record) =>
+                        "Fournisseur : {$record->supplier?->name} | Reste : " .
+                        number_format($record->debt_amount, 0, ',', ' ') . ' KMF'
+                    )
+                    ->modalIcon('heroicon-o-banknotes')
+                    ->modalIconColor('success')
                     ->form(function (Purchase $record): array {
                         return [
-                            // Informations contextuelles (lecture seule)
                             Forms\Components\Placeholder::make('info')
                                 ->label('Achat')
                                 ->content($record->reference),
@@ -375,24 +508,31 @@ class PurchaseResource extends Resource
                                     number_format($record->debt_amount, 0, ',', ' ') . ' KMF'
                                 ),
 
-                            // Montant à payer
                             Forms\Components\TextInput::make('amount')
-                                ->label('Montant payé (KMF)')
+                                ->label('Montant payé')
                                 ->numeric()
                                 ->required()
                                 ->minValue(1)
-                                ->maxValue(fn() => $record->debt_amount)
+                                ->maxValue(fn () => $record->debt_amount)
                                 ->suffix('KMF')
                                 ->helperText(
-                                    'Maximum : '
-                                        . number_format($record->debt_amount, 0, ',', ' ')
-                                        . ' KMF'
+                                    'Maximum : ' .
+                                    number_format($record->debt_amount, 0, ',', ' ') . ' KMF'
+                                )
+                                ->hintAction(
+                                    Forms\Components\Actions\Action::make('payAll')
+                                        ->label('Tout payer')
+                                        ->icon('heroicon-m-banknotes')
+                                        ->action(fn (Set $set) =>
+                                            $set('amount', $record->debt_amount)
+                                        )
                                 ),
 
                             Forms\Components\DatePicker::make('paid_at')
                                 ->label('Date du paiement')
                                 ->required()
                                 ->default(today())
+                                ->maxDate(today())
                                 ->native(false)
                                 ->displayFormat('d/m/Y'),
 
@@ -402,7 +542,6 @@ class PurchaseResource extends Resource
                         ];
                     })
                     ->action(function (Purchase $record, array $data): void {
-                        // Sécurité : ne pas dépasser le reste dû
                         $amount = min(
                             (float) $data['amount'],
                             (float) $record->debt_amount
@@ -420,24 +559,44 @@ class PurchaseResource extends Resource
                         Notification::make()
                             ->title('✅ Paiement enregistré')
                             ->body(
-                                number_format($amount, 0, ',', ' ')
-                                    . ' KMF payés à '
-                                    . ($record->supplier?->name ?? 'fournisseur')
+                                number_format($amount, 0, ',', ' ') . ' KMF payés à ' .
+                                ($record->supplier?->name ?? 'fournisseur')
                             )
                             ->success()
                             ->send();
                     }),
+
                 Tables\Actions\ViewAction::make(),
+
                 Tables\Actions\EditAction::make()
-                    ->visible(fn(Purchase $record): bool => $record->status === 'pending'),
+                    ->visible(fn (Purchase $record): bool => $record->status === 'pending'),
             ])
-            ->bulkActions([]);
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()?->can('delete_any_purchase') ?? false),
+                ]),
+            ])
+            ->emptyStateHeading('Aucun achat enregistré')
+            ->emptyStateDescription('Commencez par enregistrer votre premier achat fournisseur.')
+            ->emptyStateIcon('heroicon-o-shopping-bag')
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Nouvel achat')
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
+
+    // ═══════════════════════════════════════════════
+    // INFOLIST (Vue détaillée)
+    // ═══════════════════════════════════════════════
 
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist
             ->schema([
+
+                // ─── Section : Détails de l'achat ───
                 Infolists\Components\Section::make('Achat')
                     ->schema([
                         Infolists\Components\TextEntry::make('reference')
@@ -453,39 +612,40 @@ class PurchaseResource extends Resource
                             ->label('Date')
                             ->date('d/m/Y'),
 
-                        // Statut stock
                         Infolists\Components\TextEntry::make('status')
                             ->label('Stock')
                             ->badge()
-                            ->formatStateUsing(fn($state) => match ($state) {
+                            ->formatStateUsing(fn ($state) => match ($state) {
                                 'pending'   => '⏳ En attente',
                                 'completed' => '✅ Validé',
                                 'cancelled' => '❌ Annulé',
                                 default     => $state,
                             })
-                            ->color(fn($state) => match ($state) {
+                            ->color(fn ($state) => match ($state) {
                                 'pending'   => 'warning',
                                 'completed' => 'success',
                                 'cancelled' => 'danger',
                                 default     => 'gray',
                             }),
 
-                        // Statut paiement ← NOUVEAU
                         Infolists\Components\TextEntry::make('payment_status')
                             ->label('Paiement')
                             ->badge()
-                            ->formatStateUsing(fn($state) => match ($state) {
+                            ->formatStateUsing(fn ($state) => match ($state) {
                                 'unpaid'  => '🔴 Non payé',
                                 'partial' => '🟠 Partiel',
                                 'paid'    => '✅ Payé',
                                 default   => $state,
                             })
-                            ->color(fn($state) => match ($state) {
+                            ->color(fn ($state) => match ($state) {
                                 'unpaid'  => 'danger',
                                 'partial' => 'warning',
                                 'paid'    => 'success',
                                 default   => 'gray',
                             }),
+
+                        Infolists\Components\TextEntry::make('user.name')
+                            ->label('Enregistré par'),
 
                         Infolists\Components\TextEntry::make('total_amount')
                             ->label('Total')
@@ -501,8 +661,7 @@ class PurchaseResource extends Resource
                             ->label('Reste dû')
                             ->money('KMF')
                             ->weight('bold')
-                            ->color(
-                                fn(Purchase $record) =>
+                            ->color(fn (Purchase $record) =>
                                 $record->debt_amount > 0 ? 'danger' : 'success'
                             ),
 
@@ -513,7 +672,7 @@ class PurchaseResource extends Resource
                     ])
                     ->columns(3),
 
-                // Produits achetés
+                // ─── Section : Produits achetés ───
                 Infolists\Components\Section::make('Produits achetés')
                     ->schema([
                         Infolists\Components\RepeatableEntry::make('items')
@@ -538,7 +697,7 @@ class PurchaseResource extends Resource
                             ->columns(4),
                     ]),
 
-                // ── Historique des paiements ← NOUVEAU ──
+                // ─── Section : Historique des paiements ───
                 Infolists\Components\Section::make('Historique des paiements fournisseur')
                     ->schema([
                         Infolists\Components\RepeatableEntry::make('supplierPayments')
@@ -562,9 +721,14 @@ class PurchaseResource extends Resource
                                     ->placeholder('—'),
                             ])
                             ->columns(4),
-                    ]),
+                    ])
+                    ->visible(fn (Purchase $record) => $record->supplierPayments()->exists()),
             ]);
     }
+
+    // ═══════════════════════════════════════════════
+    // PAGES
+    // ═══════════════════════════════════════════════
 
     public static function getPages(): array
     {
