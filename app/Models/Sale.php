@@ -62,20 +62,36 @@ class Sale extends Model
     // ─────────────────────────────────────────────
 
     /**
-     * Générer une référence unique
-     * Format : VNT-20240517-0001
+     * Générer une référence unique pour ce shop
+     * Format : VNT-20260522-0001
+     *
+     * Utilise la dernière référence du jour pour éviter
+     * les race conditions.
      */
     public static function generateReference(int $shopId): string
     {
         $date   = now()->format('Ymd');
         $prefix = "VNT-{$date}";
 
-        // Compter les ventes du jour pour ce shop
-        $count = static::where('shop_id', $shopId)
-            ->whereDate('created_at', today())
-            ->count();
+        // Récupérer la DERNIÈRE référence du shop pour aujourd'hui
+        $lastSale = static::where('shop_id', $shopId)
+            ->where('reference', 'like', $prefix . '%')
+            ->orderBy('reference', 'desc')
+            ->first();
 
-        return $prefix . '-' . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        if (!$lastSale) {
+            // Pas de vente aujourd'hui → on commence à 1
+            return $prefix . '-0001';
+        }
+
+        // Extraire le numéro de la dernière référence
+        // Ex: VNT-20260522-0042 → 42
+        $lastNumber = (int) substr($lastSale->reference, -4);
+
+        // Incrémenter
+        $newNumber = $lastNumber + 1;
+
+        return $prefix . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
 
     // ─────────────────────────────────────────────

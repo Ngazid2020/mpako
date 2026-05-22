@@ -68,11 +68,19 @@ class Credit extends Model
         $date   = now()->format('Ymd');
         $prefix = "CRD-{$date}";
 
-        $count = static::where('shop_id', $shopId)
-            ->whereDate('created_at', today())
-            ->count();
+        $lastCredit = static::where('shop_id', $shopId)
+            ->where('reference', 'like', $prefix . '%')
+            ->orderBy('reference', 'desc')
+            ->first();
 
-        return $prefix . '-' . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+        if (!$lastCredit) {
+            return $prefix . '-0001';
+        }
+
+        $lastNumber = (int) substr($lastCredit->reference, -4);
+        $newNumber  = $lastNumber + 1;
+
+        return $prefix . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
 
     // ─────────────────────────────────────────────
