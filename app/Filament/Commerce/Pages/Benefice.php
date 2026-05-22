@@ -2,13 +2,17 @@
 
 namespace App\Filament\Commerce\Pages;
 
+use App\Traits\HasShieldPermissionPages;
+use App\Traits\HasShieldPermission;
 use Filament\Pages\Page;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Testing\Fluent\Concerns\Has;
 
 class Benefice extends Page
 {
+    use HasShieldPermissionPages;
     protected static ?string $navigationIcon  = 'heroicon-o-chart-bar';
     protected static ?string $navigationLabel = 'Bénéfice';
     protected static ?string $title           = '📈 Bénéfice';
