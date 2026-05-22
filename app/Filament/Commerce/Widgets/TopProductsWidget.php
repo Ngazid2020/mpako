@@ -3,12 +3,14 @@
 namespace App\Filament\Commerce\Widgets;
 
 use App\Models\SaleItem;
+use App\Traits\HasShieldPermission;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
 class TopProductsWidget extends Widget
 {
+    use HasShieldPermission;
     protected static ?int    $sort        = 3;
     protected static ?string $pollingInterval = '60s';
 
@@ -20,17 +22,6 @@ class TopProductsWidget extends Widget
     // Filtre de période
     public string $period = '7days';
 
-    public static function canView(): bool
-    {
-        // Cacher du panel admin
-        if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin') {
-            return false;
-        }
-
-        // Vérifier la permission Shield dans les autres panels
-        $className  = class_basename(static::class);
-        return auth()->user()?->can("widget_{$className}") ?? false;
-    }
 
     public function getTopProducts(): Collection
     {

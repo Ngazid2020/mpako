@@ -2,14 +2,17 @@
 
 namespace App\Filament\Commerce\Widgets;
 
+use App\Traits\HasShieldPermission;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Testing\Fluent\Concerns\Has;
 
 class StatsOverviewWidget extends BaseWidget implements HasShieldPermissions
 {
+    use HasShieldPermission;
     public static function getPermissionPrefixes(): array
     {
         return [
@@ -187,20 +190,5 @@ class StatsOverviewWidget extends BaseWidget implements HasShieldPermissions
         ];
     }
 
-    // public static function canView(): bool
-    // {
-    //     return auth()->user()?->can('widget_StatsOverviewWidget') ?? false;
-    // }
-
-    public static function canView(): bool
-    {
-        // Cacher du panel admin
-        if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin') {
-            return false;
-        }
-
-        // Vérifier la permission Shield dans les autres panels
-        $className  = class_basename(static::class);
-        return auth()->user()?->can("widget_{$className}") ?? false;
-    }
+    
 }

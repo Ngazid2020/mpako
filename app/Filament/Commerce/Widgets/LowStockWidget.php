@@ -3,12 +3,15 @@
 namespace App\Filament\Commerce\Widgets;
 
 use App\Models\Product;
+use App\Traits\HasShieldPermission;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
+use Illuminate\Testing\Fluent\Concerns\Has;
 
 class LowStockWidget extends Widget
 {
+    use HasShieldPermission;
     protected static ?int    $sort            = 4;
     protected static ?string $pollingInterval = '60s';
 
@@ -18,17 +21,6 @@ class LowStockWidget extends Widget
     protected static string $view = 'filament.commerce.widgets.low-stock-widget';
 
 
-    public static function canView(): bool
-    {
-        // Cacher du panel admin
-        if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'admin') {
-            return false;
-        }
-
-        // Vérifier la permission Shield dans les autres panels
-        $className  = class_basename(static::class);
-        return auth()->user()?->can("widget_{$className}") ?? false;
-    }
 
     public function getLowStockProducts(): Collection
     {
