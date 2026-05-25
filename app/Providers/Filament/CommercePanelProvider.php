@@ -62,7 +62,11 @@ class CommercePanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
-
+            // ✅ BOUTON : Retour vers Admin (si superadmin)
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                fn(): string => Blade::render('@include("filament.components.switch-panel-button")')
+            )
             // Middleware
             ->middleware([
                 EncryptCookies::class,

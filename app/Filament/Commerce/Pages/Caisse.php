@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StockMovement;
+use App\Traits\HasShieldPermissionPages;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -17,6 +18,7 @@ use Illuminate\Support\Collection;
 
 class Caisse extends Page
 {
+    use HasShieldPermissionPages;
     protected static ?string $navigationIcon  = 'heroicon-o-shopping-cart';
     protected static ?string $navigationLabel = 'Caisse';
     protected static ?string $title           = '💰 Caisse';
