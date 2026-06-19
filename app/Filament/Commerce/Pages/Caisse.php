@@ -15,6 +15,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class Caisse extends Page
 {
@@ -132,7 +133,10 @@ class Caisse extends Page
      */
     public function addToCart(int $productId): void
     {
-        $product = Product::find($productId);
+        $shop    = Filament::getTenant();
+        $product = $shop->products()
+            ->where('is_active', true)
+            ->find($productId);
 
         if (!$product) return;
 
@@ -242,7 +246,8 @@ class Caisse extends Page
             return;
         }
 
-        $total = $this->getTotal();
+        $total  = $this->getTotal();
+        $change = $this->getChange();
 
         if ($this->paidAmount < $total) {
             Notification::make()
@@ -255,52 +260,69 @@ class Caisse extends Page
 
         $shop = Filament::getTenant();
 
-        // ── Créer la vente ──
-        $sale = Sale::create([
-            'shop_id'       => $shop->id,
-            'user_id'       => auth()->id(),
-            'reference'     => Sale::generateReference($shop->id),
-            'status'        => 'completed',
-            'total_amount'  => $total,
-            'paid_amount'   => $this->paidAmount,
-            'change_amount' => $this->getChange(),
-            'note'          => $this->note,
-        ]);
+        try {
+            $sale = DB::transaction(function () use ($shop, $total) {
+                // Vérification du stock en temps réel avec verrou pessimiste
+                foreach ($this->cart as $item) {
+                    $product = $shop->products()
+                        ->lockForUpdate()
+                        ->find($item['product_id']);
 
-        // ── Créer les lignes et déduire le stock ──
-        foreach ($this->cart as $item) {
-            // Créer la ligne de vente
-            SaleItem::create([
-                'sale_id'      => $sale->id,
-                'product_id'   => $item['product_id'],
-                'product_name' => $item['product_name'],
-                'quantity'     => $item['quantity'],
-                'unit_price'   => $item['unit_price'],
-                'subtotal'     => $item['subtotal'],
-            ]);
+                    if (!$product || $product->stock_qty < $item['quantity']) {
+                        throw new \RuntimeException("Stock insuffisant pour « {$item['product_name']} ».");
+                    }
+                }
 
-            // Déduire du stock via un mouvement
-            // L'Observer StockMovementObserver se charge du reste
-            StockMovement::create([
-                'shop_id'    => $shop->id,
-                'product_id' => $item['product_id'],
-                'user_id'    => auth()->id(),
-                'type'       => 'out',
-                'quantity'   => $item['quantity'],
-                'reason'     => "Vente {$sale->reference}",
-            ]);
+                $sale = Sale::create([
+                    'shop_id'       => $shop->id,
+                    'user_id'       => auth()->id(),
+                    'reference'     => Sale::generateReference($shop->id),
+                    'status'        => 'completed',
+                    'total_amount'  => $total,
+                    'paid_amount'   => $this->paidAmount,
+                    'change_amount' => $this->getChange(),
+                    'note'          => $this->note,
+                ]);
+
+                foreach ($this->cart as $item) {
+                    SaleItem::create([
+                        'sale_id'      => $sale->id,
+                        'product_id'   => $item['product_id'],
+                        'product_name' => $item['product_name'],
+                        'quantity'     => $item['quantity'],
+                        'unit_price'   => $item['unit_price'],
+                        'subtotal'     => $item['subtotal'],
+                    ]);
+
+                    StockMovement::create([
+                        'shop_id'    => $shop->id,
+                        'product_id' => $item['product_id'],
+                        'user_id'    => auth()->id(),
+                        'type'       => 'out',
+                        'quantity'   => $item['quantity'],
+                        'reason'     => "Vente {$sale->reference}",
+                    ]);
+                }
+
+                return $sale;
+            });
+
+            Notification::make()
+                ->title('✅ Vente enregistrée !')
+                ->body("Réf: {$sale->reference} | Monnaie: " . number_format($change, 0, ',', ' ') . " KMF")
+                ->success()
+                ->duration(5000)
+                ->send();
+
+            $this->clearCart();
+
+        } catch (\RuntimeException $e) {
+            Notification::make()
+                ->title('Erreur de stock')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
         }
-
-        // ── Notification de succès ──
-        Notification::make()
-            ->title('✅ Vente enregistrée !')
-            ->body("Réf: {$sale->reference} | Monnaie: " . number_format($this->getChange(), 0, ',', ' ') . " KMF")
-            ->success()
-            ->duration(5000)
-            ->send();
-
-        // ── Réinitialiser la caisse ──
-        $this->clearCart();
     }
 
     // ─────────────────────────────────────────────
@@ -334,13 +356,11 @@ class Caisse extends Page
 
     public function completeCreditSale(): void
     {
-        // Validation
         if (!$this->selectedCustomerId) {
             Notification::make()
                 ->title('Sélectionnez un client')
                 ->danger()
                 ->send();
-
             return;
         }
 
@@ -350,100 +370,98 @@ class Caisse extends Page
 
         $shop = Filament::getTenant();
 
-        $total = $this->getTotal();
-
-        // ─────────────────────────────
-        // 1. Créer la vente
-        // ─────────────────────────────
-
-        $sale = Sale::create([
-            'shop_id'       => $shop->id,
-            'user_id'       => auth()->id(),
-            'customer_id'   => $this->selectedCustomerId,
-            'payment_type'  => 'credit',
-            'reference'     => Sale::generateReference($shop->id),
-            'status'        => 'completed',
-
-            // Vente à crédit
-            'total_amount'  => $total,
-            'paid_amount'   => 0,
-            'change_amount' => 0,
-        ]);
-
-        // ─────────────────────────────
-        // 2. Créer les lignes
-        // ─────────────────────────────
-
-        foreach ($this->cart as $item) {
-
-            SaleItem::create([
-                'sale_id'      => $sale->id,
-                'product_id'   => $item['product_id'],
-                'product_name' => $item['product_name'],
-                'quantity'     => $item['quantity'],
-                'unit_price'   => $item['unit_price'],
-                'subtotal'     => $item['subtotal'],
-            ]);
-
-            // Déduction stock
-            StockMovement::create([
-                'shop_id'    => $shop->id,
-                'product_id' => $item['product_id'],
-                'user_id'    => auth()->id(),
-                'type'       => 'out',
-                'quantity'   => $item['quantity'],
-                'reason'     => "Vente crédit {$sale->reference}",
-            ]);
+        // Valider que le client appartient à ce commerce
+        $customer = $shop->customers()->find($this->selectedCustomerId);
+        if (!$customer) {
+            Notification::make()
+                ->title('Client invalide')
+                ->body("Ce client n'appartient pas à ce commerce.")
+                ->danger()
+                ->send();
+            return;
         }
 
-        // ─────────────────────────────
-        // 3. Créer le crédit lié
-        // ─────────────────────────────
+        $total = $this->getTotal();
 
-        Credit::create([
-            'shop_id'          => $shop->id,
-            'sale_id'          => $sale->id,
-            'customer_id'      => $this->selectedCustomerId,
-            'user_id'          => auth()->id(),
+        try {
+            DB::transaction(function () use ($shop, $customer, $total) {
+                // Vérification du stock en temps réel avec verrou pessimiste
+                foreach ($this->cart as $item) {
+                    $product = $shop->products()
+                        ->lockForUpdate()
+                        ->find($item['product_id']);
 
-            'reference'        => Credit::generateReference($shop->id),
+                    if (!$product || $product->stock_qty < $item['quantity']) {
+                        throw new \RuntimeException("Stock insuffisant pour « {$item['product_name']} ».");
+                    }
+                }
 
-            'status'           => 'pending',
+                $sale = Sale::create([
+                    'shop_id'       => $shop->id,
+                    'user_id'       => auth()->id(),
+                    'customer_id'   => $customer->id,
+                    'payment_type'  => 'credit',
+                    'reference'     => Sale::generateReference($shop->id),
+                    'status'        => 'completed',
+                    'total_amount'  => $total,
+                    'paid_amount'   => 0,
+                    'change_amount' => 0,
+                ]);
 
-            'total_amount'     => $total,
-            'paid_amount'      => 0,
-            'remaining_amount' => $total,
+                foreach ($this->cart as $item) {
+                    SaleItem::create([
+                        'sale_id'      => $sale->id,
+                        'product_id'   => $item['product_id'],
+                        'product_name' => $item['product_name'],
+                        'quantity'     => $item['quantity'],
+                        'unit_price'   => $item['unit_price'],
+                        'subtotal'     => $item['subtotal'],
+                    ]);
 
-            'due_date'         => $this->creditDueDate,
+                    StockMovement::create([
+                        'shop_id'    => $shop->id,
+                        'product_id' => $item['product_id'],
+                        'user_id'    => auth()->id(),
+                        'type'       => 'out',
+                        'quantity'   => $item['quantity'],
+                        'reason'     => "Vente crédit {$sale->reference}",
+                    ]);
+                }
 
-            'description'      => 'Vente à crédit depuis la caisse',
+                Credit::create([
+                    'shop_id'          => $shop->id,
+                    'sale_id'          => $sale->id,
+                    'customer_id'      => $customer->id,
+                    'user_id'          => auth()->id(),
+                    'reference'        => Credit::generateReference($shop->id),
+                    'status'           => 'pending',
+                    'total_amount'     => $total,
+                    'paid_amount'      => 0,
+                    'remaining_amount' => $total,
+                    'due_date'         => $this->creditDueDate,
+                    'description'      => 'Vente à crédit depuis la caisse',
+                    'note'             => $this->creditNote,
+                ]);
+            });
 
-            'note'             => $this->creditNote,
-        ]);
+            Notification::make()
+                ->title('✅ Vente à crédit enregistrée')
+                ->body($customer->name . ' doit ' . number_format($total, 0, ',', ' ') . ' KMF')
+                ->success()
+                ->send();
 
-        // ─────────────────────────────
-        // 4. Succès
-        // ─────────────────────────────
+            $this->clearCart();
+            $this->showCreditModal    = false;
+            $this->selectedCustomerId = null;
+            $this->creditDueDate      = null;
+            $this->creditNote         = '';
 
-        $customer = Customer::find($this->selectedCustomerId);
-
-        Notification::make()
-            ->title('✅ Vente à crédit enregistrée')
-            ->body(
-                $customer->name
-                    . ' doit '
-                    . number_format($total, 0, ',', ' ')
-                    . ' KMF'
-            )
-            ->success()
-            ->send();
-
-        // Reset
-        $this->clearCart();
-
-        $this->showCreditModal   = false;
-        $this->selectedCustomerId = null;
-        $this->creditDueDate      = null;
-        $this->creditNote         = '';
+        } catch (\RuntimeException $e) {
+            Notification::make()
+                ->title('Erreur de stock')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 }

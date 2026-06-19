@@ -38,18 +38,20 @@ class KomorShopSeeder extends Seeder
         $ali = User::firstOrCreate(
             ['email' => 'ali@test.com'],
             [
-                'name' => 'Ali Mohamed',
-                'password' => Hash::make('password'),
-                'is_admin' => false,
+                'name'              => 'Ali Mohamed',
+                'password'          => Hash::make('password'),
+                'is_admin'          => false,
+                'email_verified_at' => now(),
             ]
         );
 
         $fatima = User::firstOrCreate(
             ['email' => 'fatima@test.com'],
             [
-                'name' => 'Fatima Abdou',
-                'password' => Hash::make('password'),
-                'is_admin' => false,
+                'name'              => 'Fatima Abdou',
+                'password'          => Hash::make('password'),
+                'is_admin'          => false,
+                'email_verified_at' => now(),
             ]
         );
 

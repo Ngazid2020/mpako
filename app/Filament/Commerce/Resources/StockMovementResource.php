@@ -42,9 +42,8 @@ class StockMovementResource extends Resource
                             ->native(false)
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // Afficher le stock actuel après sélection
                                 if ($state) {
-                                    $product = Product::find($state);
+                                    $product = Filament::getTenant()->products()->find($state);
                                     $set('current_stock', $product?->stock_qty ?? 0);
                                 }
                             }),

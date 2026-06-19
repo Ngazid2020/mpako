@@ -76,6 +76,7 @@ class Sale extends Model
         // Récupérer la DERNIÈRE référence du shop pour aujourd'hui
         $lastSale = static::where('shop_id', $shopId)
             ->where('reference', 'like', $prefix . '%')
+            ->lockForUpdate()
             ->orderBy('reference', 'desc')
             ->first();
 

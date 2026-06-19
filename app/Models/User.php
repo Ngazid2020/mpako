@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
@@ -15,7 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, HasTenants
+class User extends Authenticatable implements FilamentUser, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -83,9 +83,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             // return true;
         }
 
-        // Le panel commerce est accessible à tout utilisateur actif
+        // Le panel commerce requiert un email vérifié
         if ($panel->getId() === 'commerce') {
-            return true;
+            return $this->hasVerifiedEmail();
         }
 
         return false;

@@ -7,7 +7,6 @@ use App\Models\Shop;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -35,6 +34,7 @@ class CommercePanelProvider extends PanelProvider
             // Connexion + inscription (le commerçant peut s'inscrire seul)
             ->login()
             ->registration()
+            ->emailVerification()
 
             // Couleurs — Bleu pour le commerce (confiance, sérieux)
             ->colors([

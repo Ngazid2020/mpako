@@ -68,6 +68,7 @@ class Purchase extends Model
 
         $lastPurchase = static::where('shop_id', $shopId)
             ->where('reference', 'like', $prefix . '%')
+            ->lockForUpdate()
             ->orderBy('reference', 'desc')
             ->first();
 
