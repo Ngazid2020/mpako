@@ -1,8 +1,7 @@
-var staticCacheName = "pwa-v" + new Date().getTime();
-var filesToCache = [
+var CACHE_NAME = 'mpako-v1';
+
+var STATIC_ASSETS = [
     '/offline',
-    '/css/app.css',
-    '/js/app.js',
     '/images/icons/icon-72x72.png',
     '/images/icons/icon-96x96.png',
     '/images/icons/icon-128x128.png',
@@ -13,40 +12,64 @@ var filesToCache = [
     '/images/icons/icon-512x512.png',
 ];
 
-// Cache on install
-self.addEventListener("install", event => {
-    this.skipWaiting();
+// Pré-cache les assets statiques à l'installation
+self.addEventListener('install', function (event) {
+    self.skipWaiting();
     event.waitUntil(
-        caches.open(staticCacheName)
-            .then(cache => {
-                return cache.addAll(filesToCache);
-            })
-    )
-});
-
-// Clear cache on activate
-self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames
-                    .filter(cacheName => (cacheName.startsWith("pwa-")))
-                    .filter(cacheName => (cacheName !== staticCacheName))
-                    .map(cacheName => caches.delete(cacheName))
-            );
+        caches.open(CACHE_NAME).then(function (cache) {
+            return cache.addAll(STATIC_ASSETS);
         })
     );
 });
 
-// Serve from Cache
-self.addEventListener("fetch", event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                return response || fetch(event.request);
+// Supprime les anciens caches à l'activation
+self.addEventListener('activate', function (event) {
+    event.waitUntil(
+        caches.keys().then(function (keys) {
+            return Promise.all(
+                keys
+                    .filter(function (key) { return key.startsWith('mpako-') && key !== CACHE_NAME; })
+                    .map(function (key) { return caches.delete(key); })
+            );
+        }).then(function () {
+            return self.clients.claim();
+        })
+    );
+});
+
+// Stratégie réseau :
+//   - Navigation  → network-first, fallback page offline
+//   - Icons/splash → cache-first
+//   - Tout le reste → network-only (pages Livewire, API)
+self.addEventListener('fetch', function (event) {
+    var request = event.request;
+
+    // Ignorer les requêtes non-GET et cross-origin
+    if (request.method !== 'GET') return;
+    try {
+        var url = new URL(request.url);
+        if (url.origin !== location.origin) return;
+    } catch (e) {
+        return;
+    }
+
+    // Assets statiques (icônes) : cache-first
+    if (request.url.includes('/images/icons/')) {
+        event.respondWith(
+            caches.match(request).then(function (cached) {
+                return cached || fetch(request);
             })
-            .catch(() => {
-                return caches.match('offline');
+        );
+        return;
+    }
+
+    // Navigation : network-first, page offline en fallback
+    if (request.mode === 'navigate') {
+        event.respondWith(
+            fetch(request).catch(function () {
+                return caches.match('/offline');
             })
-    )
+        );
+        return;
+    }
 });

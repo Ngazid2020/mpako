@@ -55,10 +55,9 @@
                 {{-- Barre de progression --}}
                 <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                     <div
-                        class="h-1.5 rounded-full transition-all duration-500"
-                        style="width: {{ $maxTotal > 0 ? ($cat['total'] / $maxTotal) * 100 : 0 }}%;
-                                    background-color: {{ $cat['color'] }};
-                                "></div>
+                        class="h-1.5 rounded-full"
+                        style="width: {{ $maxTotal > 0 ? ($cat['total'] / $maxTotal) * 100 : 0 }}%; background-color: {{ $cat['color'] }}; transition: width 200ms ease; will-change: width;"
+                    ></div>
                 </div>
             </div>
             @endforeach

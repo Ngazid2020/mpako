@@ -174,24 +174,21 @@
             {{-- Barre de progression décomposée --}}
             <div class="flex rounded-full overflow-hidden h-6 mb-3">
                 <div
-                    class="bg-orange-400 flex items-center justify-center
-                           text-white text-xs font-medium transition-all"
-                    style="width: {{ $purchasePct }}%"
+                    class="bg-orange-400 flex items-center justify-center text-white text-xs font-medium"
+                    style="width: {{ $purchasePct }}%; transition: width 250ms ease; will-change: width;"
                     title="Achats : {{ $purchasePct }}%"
                 >
                     @if($purchasePct > 5) {{ $purchasePct }}% @endif
                 </div>
                 <div
-                    class="bg-red-400 flex items-center justify-center
-                           text-white text-xs font-medium transition-all"
-                    style="width: {{ $expensePct }}%"
+                    class="bg-red-400 flex items-center justify-center text-white text-xs font-medium"
+                    style="width: {{ $expensePct }}%; transition: width 250ms ease; will-change: width;"
                     title="Dépenses : {{ $expensePct }}%"
                 >
                     @if($expensePct > 5) {{ $expensePct }}% @endif
                 </div>
                 <div
-                    class="bg-green-400 flex items-center justify-center
-                           text-white text-xs font-medium transition-all flex-1"
+                    class="bg-green-400 flex items-center justify-center text-white text-xs font-medium flex-1"
                     title="Bénéfice : {{ $profitPct }}%"
                 >
                     @if($profitPct > 5) {{ $profitPct }}% @endif
@@ -252,9 +249,8 @@
                     <div class="w-full flex items-end justify-center"
                          style="height: 100px">
                         <div
-                            class="w-full rounded-t-lg transition-all duration-500
-                                   {{ $isPositive ? 'bg-green-400 dark:bg-green-500' : 'bg-red-400 dark:bg-red-500' }}"
-                            style="height: {{ max(4, $height) }}%"
+                            class="w-full rounded-t-lg {{ $isPositive ? 'bg-green-400 dark:bg-green-500' : 'bg-red-400 dark:bg-red-500' }}"
+                            style="height: {{ max(4, $height) }}%; transition: height 250ms ease; will-change: height;"
                         ></div>
                     </div>
 

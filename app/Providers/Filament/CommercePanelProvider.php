@@ -82,10 +82,14 @@ class CommercePanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            // ->renderHook(
-            //     PanelsRenderHook::HEAD_END,
-            //     fn(): string => Blade::render('@laravelPWA')
-            // )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn(): string => Blade::render('@laravelPWA')
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => Blade::render('@include("filament.components.pwa-install-prompt")')
+            )
         ;
     }
 }

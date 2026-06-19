@@ -264,7 +264,7 @@
                 <button
                     wire:click="completeSale"
                     wire:loading.attr="disabled"
-                    class="w-full py-4 rounded-xl font-bold text-lg transition-all {{ $canComplete ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-lg hover:shadow-xl' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed' }}"
+                    class="w-full py-4 rounded-xl font-bold text-lg transition-colors {{ $canComplete ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-lg' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed' }}"
                     {{ $canComplete ? '' : 'disabled' }}
                 >
                     <span wire:loading.remove wire:target="completeSale">
@@ -278,7 +278,7 @@
                 {{-- Bouton vente à crédit --}}
                 <button
                     wire:click="openCreditModal"
-                    class="w-full py-3 rounded-xl font-bold text-lg bg-orange-500 hover:bg-orange-600 text-white transition-all"
+                    class="w-full py-3 rounded-xl font-bold text-lg bg-orange-500 hover:bg-orange-600 text-white transition-colors"
                 >
                     📒 Vente à crédit
                 </button>
@@ -321,9 +321,28 @@
     {{-- ═════════════════════════════════════ --}}
     {{-- MODAL VENTE À CRÉDIT                 --}}
     {{-- ═════════════════════════════════════ --}}
-    @if($showCreditModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+    <div
+        x-data
+        x-show="$wire.showCreditModal"
+        x-cloak
+        x-transition:enter="transition-opacity ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition-opacity ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    >
+        <div
+            x-show="$wire.showCreditModal"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+            x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+            class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6"
+        >
 
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">
                     📒 Vente à crédit
@@ -417,6 +436,6 @@
 
             </div>
         </div>
-    @endif
+    </div>
 
 </x-filament-panels::page>

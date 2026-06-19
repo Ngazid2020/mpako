@@ -60,8 +60,8 @@
                         {{-- Barre de progression --}}
                         <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                             <div
-                                class="h-1.5 rounded-full bg-primary-500 transition-all duration-500"
-                                style="width: {{ $maxAmount > 0 ? ($product->total_amount / $maxAmount) * 100 : 0 }}%"
+                                class="h-1.5 rounded-full bg-primary-500"
+                                style="width: {{ $maxAmount > 0 ? ($product->total_amount / $maxAmount) * 100 : 0 }}%; transition: width 200ms ease; will-change: width;"
                             ></div>
                         </div>
 
