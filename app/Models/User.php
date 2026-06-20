@@ -29,15 +29,24 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'is_admin'          => 'boolean',
+            'email_verified_at'         => 'datetime',
+            'password'                  => 'hashed',
+            'is_admin'                  => 'boolean',
+            'two_factor_recovery_codes' => 'array',
+            'two_factor_confirmed_at'   => 'datetime',
         ];
+    }
+
+    public function hasEnabledTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null;
     }
 
     // ─────────────────────────────────────────────

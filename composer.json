@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "bacon/bacon-qr-code": "^3.1",
         "bezhansalleh/filament-shield": "^3.9",
         "filament/filament": "3.3",
         "laravel-notification-channels/webpush": "^10.5",
@@ -14,6 +15,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "maatwebsite/excel": "^3.1",
+        "pragmarx/google2fa-laravel": "^3.0",
         "silviolleite/laravelpwa": "^2.0"
     },
     "require-dev": {
