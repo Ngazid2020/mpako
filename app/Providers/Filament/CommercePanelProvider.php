@@ -32,9 +32,8 @@ class CommercePanelProvider extends PanelProvider
             ->path('commerce')
 
             // Connexion + inscription (le commerçant peut s'inscrire seul)
-            ->login()
-            ->registration()
-            ->emailVerification()
+            ->login(\App\Filament\Commerce\Pages\Auth\Login::class)
+            ->registration(\App\Filament\Commerce\Pages\Auth\Register::class)
 
             // Couleurs — Bleu pour le commerce (confiance, sérieux)
             ->colors([

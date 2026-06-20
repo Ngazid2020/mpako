@@ -17,9 +17,11 @@ class KomorShopSeeder extends Seeder
         // 1. Vérifier que le super-admin existe
         // ─────────────────────────────────────
         $admin = User::firstOrCreate(
-            ['email' => 'admin@komorshop.com'],
+            ['phone' => '+2699000000'],
             [
-                'name' => 'Admin KomorShop',
+                'name'     => 'Admin KomorShop',
+                'phone'    => '+2699000000',
+                'email'    => 'admin@komorshop.com',
                 'password' => Hash::make('password'),
                 'is_admin' => true,
             ]
@@ -36,26 +38,28 @@ class KomorShopSeeder extends Seeder
         // 2. Créer des commerçants de test
         // ─────────────────────────────────────
         $ali = User::firstOrCreate(
-            ['email' => 'ali@test.com'],
+            ['phone' => '+2699000001'],
             [
-                'name'              => 'Ali Mohamed',
-                'password'          => Hash::make('password'),
-                'is_admin'          => false,
-                'email_verified_at' => now(),
+                'name'     => 'Ali Mohamed',
+                'phone'    => '+2699000001',
+                'email'    => 'ali@test.com',
+                'password' => Hash::make('password'),
+                'is_admin' => false,
             ]
         );
 
         $fatima = User::firstOrCreate(
-            ['email' => 'fatima@test.com'],
+            ['phone' => '+2699000002'],
             [
-                'name'              => 'Fatima Abdou',
-                'password'          => Hash::make('password'),
-                'is_admin'          => false,
-                'email_verified_at' => now(),
+                'name'     => 'Fatima Abdou',
+                'phone'    => '+2699000002',
+                'email'    => 'fatima@test.com',
+                'password' => Hash::make('password'),
+                'is_admin' => false,
             ]
         );
 
-        $this->command->info('✅ Commerçants créés : ali@test.com, fatima@test.com');
+        $this->command->info('✅ Commerçants créés : Ali (+2699000001), Fatima (+2699000002)');
 
         // ─────────────────────────────────────
         // 3. Créer des commerces
@@ -96,11 +100,11 @@ class KomorShopSeeder extends Seeder
         $this->command->newLine();
         $this->command->info('🎉 Données de test prêtes !');
         $this->command->table(
-            ['Rôle', 'Email', 'Mot de passe', 'Commerce'],
+            ['Rôle', 'Téléphone', 'Mot de passe', 'Commerce'],
             [
-                ['Super Admin', 'admin@komorshop.com', 'password', '-'],
-                ['Commerçant', 'ali@test.com', 'password', 'Boutique Ali'],
-                ['Commerçant', 'fatima@test.com', 'password', 'Épicerie Fatima'],
+                ['Super Admin', '+2699000000', 'password', '-'],
+                ['Commerçant',  '+2699000001', 'password', 'Boutique Ali'],
+                ['Commerçant',  '+2699000002', 'password', 'Épicerie Fatima'],
             ]
         );
     }

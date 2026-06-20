@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
@@ -16,43 +14,29 @@ use Illuminate\Support\Collection;
 use NotificationChannels\WebPush\HasPushSubscriptions;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, HasTenants, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasTenants
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, HasPushSubscriptions;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
+        'phone',
         'email',
         'password',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_admin' => 'boolean',
+            'password'          => 'hashed',
+            'is_admin'          => 'boolean',
         ];
     }
 
@@ -60,9 +44,6 @@ class User extends Authenticatable implements FilamentUser, HasTenants, MustVeri
     // RELATIONS
     // ─────────────────────────────────────────────
 
-    /**
-     * Les commerces auxquels cet utilisateur a accès.
-     */
     public function shops(): BelongsToMany
     {
         return $this->belongsToMany(Shop::class, 'shop_user')
@@ -73,20 +54,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants, MustVeri
     // FILAMENT : Accès aux panels
     // ─────────────────────────────────────────────
 
-    /**
-     * Qui peut accéder à quel panel ?
-     */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Le panel admin n'est accessible qu'aux super-admins
         if ($panel->getId() === 'admin') {
             return $this->is_admin === true;
-            // return true;
         }
 
-        // Le panel commerce requiert un email vérifié
+        // Tout utilisateur authentifié peut accéder au panel commerce
         if ($panel->getId() === 'commerce') {
-            return $this->hasVerifiedEmail();
+            return true;
         }
 
         return false;
@@ -96,18 +72,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants, MustVeri
     // FILAMENT : Multitenancy
     // ─────────────────────────────────────────────
 
-    /**
-     * Retourne les tenants (commerces) auxquels l'utilisateur a accès.
-     * Filament affichera un sélecteur si l'user a plusieurs commerces.
-     */
     public function getTenants(Panel $panel): Collection
     {
         return $this->shops;
     }
 
-    /**
-     * Vérifie si l'utilisateur peut accéder à un tenant donné.
-     */
     public function canAccessTenant(Model $tenant): bool
     {
         return $this->shops()->whereKey($tenant)->exists();

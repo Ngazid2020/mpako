@@ -16,8 +16,9 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@komorshop.com',
+            'name'     => 'Admin User',
+            'phone'    => '+2699000000',
+            'email'    => 'admin@komorshop.com',
             'is_admin' => true,
         ]);
 

@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -19,23 +18,20 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'email'    => ['required', 'email'],
+            'phone'    => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('phone', $request->phone)->first();
 
-        // Vérification identifiants
         if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['Identifiants incorrects.'],
+                'phone' => ['Identifiants incorrects.'],
             ]);
         }
 
-        // Chargement des commerces de l'utilisateur
         $user->load('shops');
 
-        // Création du token Sanctum
         $token = $user->createToken(
             name: 'mobile-app',
             expiresAt: now()->addDays(30)
@@ -47,7 +43,7 @@ class AuthController extends Controller
             'user'    => [
                 'id'       => $user->id,
                 'name'     => $user->name,
-                'email'    => $user->email,
+                'phone'    => $user->phone,
                 'is_admin' => $user->is_admin,
             ],
             'shops' => $user->shops->map(fn ($shop) => [
@@ -68,7 +64,6 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        // Supprime le token courant
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
@@ -91,7 +86,7 @@ class AuthController extends Controller
             'user'    => [
                 'id'       => $user->id,
                 'name'     => $user->name,
-                'email'    => $user->email,
+                'phone'    => $user->phone,
                 'is_admin' => $user->is_admin,
             ],
             'shops' => $user->shops->map(fn ($shop) => [
