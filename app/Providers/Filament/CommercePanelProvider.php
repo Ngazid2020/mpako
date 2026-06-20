@@ -90,6 +90,10 @@ class CommercePanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn(): string => Blade::render('@include("filament.components.pwa-install-prompt")')
             )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => auth()->check() ? Blade::render('@include("filament.components.push-subscribe")') : ''
+            )
         ;
     }
 }

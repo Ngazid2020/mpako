@@ -3,6 +3,8 @@
 namespace App\Observers;
 
 use App\Models\StockMovement;
+use App\Models\User;
+use App\Notifications\LowStockNotification;
 use Filament\Facades\Filament;
 
 class StockMovementObserver
@@ -31,8 +33,14 @@ class StockMovementObserver
     public function created(StockMovement $movement): void
     {
         // ── Mettre à jour le stock du produit ──
-        $movement->product->update([
-            'stock_qty' => $movement->stock_after,
-        ]);
+        $product = $movement->product;
+        $product->update(['stock_qty' => $movement->stock_after]);
+
+        // ── Alerte stock faible (push notification) ──
+        if ($movement->type === 'out' && $product->stock_qty <= $product->stock_alert) {
+            User::whereHas('shops', fn($q) => $q->where('shops.id', $movement->shop_id))
+                ->get()
+                ->each(fn(User $user) => $user->notify(new LowStockNotification($product)));
+        }
     }
 }

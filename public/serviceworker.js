@@ -73,3 +73,32 @@ self.addEventListener('fetch', function (event) {
         return;
     }
 });
+
+// ── Push notifications ──
+self.addEventListener('push', function (event) {
+    if (!event.data) return;
+
+    var data = event.data.json();
+    var title = data.title || 'KomorShop';
+    var options = {
+        body:    data.body    || '',
+        icon:    data.icon    || '/images/icons/icon-192x192.png',
+        badge:   data.badge   || '/images/icons/icon-72x72.png',
+        data:    data.data    || {},
+        vibrate: [200, 100, 200],
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function (event) {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+            for (var i = 0; i < list.length; i++) {
+                if ('focus' in list[i]) return list[i].focus();
+            }
+            if (clients.openWindow) return clients.openWindow('/commerce');
+        })
+    );
+});

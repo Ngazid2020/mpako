@@ -41,6 +41,10 @@ class Caisse extends Page
 
     // Note crédit
     public string $creditNote = '';
+
+    // Reçu de vente
+    public array $lastSale        = [];
+    public bool  $showReceiptModal = false;
     // ─────────────────────────────────────────────
     // PROPRIÉTÉS LIVEWIRE (état de la page)
     // ─────────────────────────────────────────────
@@ -117,11 +121,17 @@ class Caisse extends Page
             ->where('is_active', true)
             ->where(function ($query) {
                 $query->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('barcode', $this->search); // Recherche par code-barres exact
+                    ->orWhere('barcode', $this->search);
             })
             ->with(['category', 'unit'])
-            ->limit(8) // Max 8 résultats pour rester lisible
+            ->limit(8)
             ->get();
+
+        // Auto-add si correspondance exacte de code-barres (scan caméra)
+        $first = $this->searchResults->first();
+        if ($this->searchResults->count() === 1 && $first?->barcode === $this->search) {
+            $this->addToCart($first->id);
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -227,6 +237,12 @@ class Caisse extends Page
         $this->note       = '';
     }
 
+    public function closeReceipt(): void
+    {
+        $this->lastSale        = [];
+        $this->showReceiptModal = false;
+    }
+
     // ─────────────────────────────────────────────
     // ENCAISSEMENT
     // ─────────────────────────────────────────────
@@ -314,7 +330,23 @@ class Caisse extends Page
                 ->duration(5000)
                 ->send();
 
+            $cartSnapshot = $this->cart;
+            $paidPrev     = $this->paidAmount;
+            $notePrev     = $this->note;
+
             $this->clearCart();
+
+            $this->lastSale = [
+                'reference' => $sale->reference,
+                'items'     => collect($cartSnapshot)->values()->toArray(),
+                'total'     => (int) $total,
+                'paid'      => (int) $paidPrev,
+                'change'    => (int) max(0, $paidPrev - $total),
+                'note'      => $notePrev,
+                'type'      => 'comptant',
+                'customer'  => null,
+            ];
+            $this->showReceiptModal = true;
 
         } catch (\RuntimeException $e) {
             Notification::make()
@@ -384,7 +416,7 @@ class Caisse extends Page
         $total = $this->getTotal();
 
         try {
-            DB::transaction(function () use ($shop, $customer, $total) {
+            $creditRef = DB::transaction(function () use ($shop, $customer, $total) {
                 // Vérification du stock en temps réel avec verrou pessimiste
                 foreach ($this->cart as $item) {
                     $product = $shop->products()
@@ -428,7 +460,7 @@ class Caisse extends Page
                     ]);
                 }
 
-                Credit::create([
+                $credit = Credit::create([
                     'shop_id'          => $shop->id,
                     'sale_id'          => $sale->id,
                     'customer_id'      => $customer->id,
@@ -442,6 +474,8 @@ class Caisse extends Page
                     'description'      => 'Vente à crédit depuis la caisse',
                     'note'             => $this->creditNote,
                 ]);
+
+                return $credit->reference;
             });
 
             Notification::make()
@@ -450,11 +484,26 @@ class Caisse extends Page
                 ->success()
                 ->send();
 
+            $cartSnapshot = $this->cart;
+            $customerName = $customer->name;
+
             $this->clearCart();
             $this->showCreditModal    = false;
             $this->selectedCustomerId = null;
             $this->creditDueDate      = null;
             $this->creditNote         = '';
+
+            $this->lastSale = [
+                'reference' => $creditRef,
+                'items'     => collect($cartSnapshot)->values()->toArray(),
+                'total'     => (int) $total,
+                'paid'      => 0,
+                'change'    => 0,
+                'note'      => '',
+                'type'      => 'crédit',
+                'customer'  => $customerName,
+            ];
+            $this->showReceiptModal = true;
 
         } catch (\RuntimeException $e) {
             Notification::make()
