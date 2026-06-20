@@ -218,10 +218,31 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('print_label')
+                    ->label('Étiquette')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->url(fn (Product $record): string => route('labels.print', [
+                        'shop' => Filament::getTenant()->slug,
+                        'ids'  => (string) $record->id,
+                    ]))
+                    ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('print_labels')
+                        ->label('Imprimer les étiquettes')
+                        ->icon('heroicon-o-printer')
+                        ->color('gray')
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records, \Livewire\Component $livewire): void {
+                            $url = route('labels.print', [
+                                'shop' => Filament::getTenant()->slug,
+                                'ids'  => $records->pluck('id')->implode(','),
+                            ]);
+                            $livewire->dispatch('open-print-window', url: $url);
+                        }),
                 ]),
             ]);
     }

@@ -94,6 +94,10 @@ class CommercePanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn(): string => auth()->check() ? Blade::render('@include("filament.components.push-subscribe")') : ''
             )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => '<div x-data @open-print-window.window="window.open($event.detail.url, \'_blank\')"></div>'
+            )
         ;
     }
 }
