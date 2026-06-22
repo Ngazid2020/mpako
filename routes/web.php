@@ -9,3 +9,6 @@ Route::get('/', function () {
 Route::middleware(['web', 'auth'])
     ->get('/commerce/{shop:slug}/print-labels', [\App\Http\Controllers\Commerce\LabelController::class, 'print'])
     ->name('labels.print');
+
+Route::get('/commerce/pending', fn () => view('auth.pending'))
+    ->name('register.pending');

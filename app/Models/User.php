@@ -24,6 +24,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         'phone',
         'email',
         'password',
+        'is_approved',
     ];
 
     protected $hidden = [
@@ -39,6 +40,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             'email_verified_at'         => 'datetime',
             'password'                  => 'hashed',
             'is_admin'                  => 'boolean',
+            'is_approved'               => 'boolean',
             'two_factor_recovery_codes' => 'array',
             'two_factor_confirmed_at'   => 'datetime',
         ];
@@ -69,9 +71,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             return $this->is_admin === true;
         }
 
-        // Tout utilisateur authentifié peut accéder au panel commerce
+        // Le panel commerce nécessite un compte approuvé par l'admin
         if ($panel->getId() === 'commerce') {
-            return true;
+            return $this->is_approved === true;
         }
 
         return false;

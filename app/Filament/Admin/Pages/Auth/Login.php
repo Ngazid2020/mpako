@@ -71,7 +71,7 @@ class Login extends BaseLogin
     {
         try {
             $this->rateLimit(5);
-        } catch (\Filament\Exceptions\TooManyRequestsException $exception) {
+        } catch (\DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException $exception) {
             Notification::make()
                 ->title('Trop de tentatives. Réessayez dans ' . $exception->secondsUntilAvailable . 's.')
                 ->danger()

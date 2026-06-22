@@ -44,12 +44,30 @@
             </nav>
 
             <div class="flex items-center gap-3">
-                <a href="/commerce/login" class="hidden sm:inline text-sm font-semibold text-gray-700 hover:text-primary-600">
-                    Connexion
-                </a>
-                <a href="/commerce/register" class="magnetic btn-shine bg-gradient-to-r from-primary-600 via-cyan-600 to-emerald-600 hover:shadow-2xl text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition-all">
-                    Commencer →
-                </a>
+                @auth
+                    {{-- Utilisateur connecté --}}
+                    <span class="hidden sm:inline text-sm font-semibold text-gray-600">
+                        👋 {{ auth()->user()->name }}
+                    </span>
+                    @php $firstShop = auth()->user()->shops()->first(); @endphp
+                    @if($firstShop)
+                        <a href="/commerce/{{ $firstShop->slug }}" class="magnetic btn-shine bg-gradient-to-r from-primary-600 via-cyan-600 to-emerald-600 hover:shadow-2xl text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition-all">
+                            Mon tableau de bord →
+                        </a>
+                    @else
+                        <a href="/commerce/new" class="magnetic btn-shine bg-gradient-to-r from-primary-600 via-cyan-600 to-emerald-600 hover:shadow-2xl text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition-all">
+                            Créer mon commerce →
+                        </a>
+                    @endif
+                @else
+                    {{-- Visiteur --}}
+                    <a href="/commerce/login" class="hidden sm:inline text-sm font-semibold text-gray-700 hover:text-primary-600">
+                        Connexion
+                    </a>
+                    <a href="/commerce/register" class="magnetic btn-shine bg-gradient-to-r from-primary-600 via-cyan-600 to-emerald-600 hover:shadow-2xl text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-lg transition-all">
+                        Commencer →
+                    </a>
+                @endauth
             </div>
         </div>
     </header>

@@ -71,7 +71,7 @@ class Login extends BaseLogin
     {
         try {
             $this->rateLimit(5);
-        } catch (\Filament\Exceptions\TooManyRequestsException $exception) {
+        } catch (\DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException $exception) {
             Notification::make()
                 ->title('Trop de tentatives. Réessayez dans ' . $exception->secondsUntilAvailable . 's.')
                 ->danger()
@@ -99,9 +99,13 @@ class Login extends BaseLogin
         }
 
         if (!$user->canAccessPanel(Filament::getCurrentPanel())) {
+            $message = !$user->is_approved
+                ? 'Compte en attente de validation. Un administrateur doit activer votre accès.'
+                : 'Accès non autorisé.';
+
             Notification::make()
-                ->title('Accès non autorisé.')
-                ->danger()
+                ->title($message)
+                ->warning()
                 ->send();
             return null;
         }

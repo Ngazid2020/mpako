@@ -13,6 +13,8 @@ use App\Observers\PurchaseObserver;
 use App\Observers\StockMovementObserver;
 use App\Observers\SupplierPaymentObserver;
 use Carbon\Carbon;
+use Filament\Notifications\Livewire\Notifications;
+use Filament\Support\Enums\VerticalAlignment;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -35,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
         CreditPayment::observe(CreditPaymentObserver::class);
         Credit::observe(CreditObserver::class);
         SupplierPayment::observe(SupplierPaymentObserver::class);
+
+        // Notifications Filament en bas à droite
+        Notifications::verticalAlignment(VerticalAlignment::End);
 
         // Dates en français
         Carbon::setLocale('fr');
