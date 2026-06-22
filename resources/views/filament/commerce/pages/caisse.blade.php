@@ -10,54 +10,19 @@
         {{-- ───────────────────────────────────────────────── --}}
         <div class="lg:col-span-2 space-y-4">
 
-            {{-- Recherche & Scanner code-barres --}}
-            <div
-                x-data="caisseScanner"
-                @keydown.escape.window="stopScan()"
-                class="bg-white dark:bg-gray-800 rounded-xl shadow p-4"
-            >
+            {{-- Recherche --}}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     🔍 Rechercher un produit
                 </label>
-                <div class="flex gap-2">
-                    <input
-                        type="text"
-                        wire:model.live.debounce.300ms="search"
-                        placeholder="Nom ou code-barres..."
-                        class="flex-1 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-lg px-4 py-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        autofocus
-                    />
-                    <button
-                        @click="scanning ? stopScan() : startScan()"
-                        type="button"
-                        :disabled="!supported"
-                        class="px-4 rounded-lg transition-colors"
-                        :class="scanning
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600'
-                            : supported
-                                ? 'bg-gray-100 dark:bg-gray-700 hover:bg-primary-100 dark:hover:bg-primary-900/30 text-gray-600 dark:text-gray-300'
-                                : 'bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'"
-                        :title="supported ? 'Scanner un code-barres' : 'Non disponible sur ce navigateur'"
-                    >
-                        <span x-show="!scanning" class="text-2xl">📷</span>
-                        <span x-show="scanning" class="text-2xl">⏹</span>
-                    </button>
-                </div>
-
-                {{-- Vue caméra --}}
-                <div x-show="scanning" x-cloak class="mt-3 relative rounded-xl overflow-hidden bg-black">
-                    <video
-                        x-ref="camvideo"
-                        autoplay muted playsinline
-                        class="w-full max-h-48 object-cover"
-                    ></video>
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div class="w-52 h-28 border-2 border-primary-400/80 rounded-lg"></div>
-                    </div>
-                    <p class="absolute bottom-2 inset-x-0 text-center text-xs text-white/70">
-                        Pointez vers le code-barres · Échap pour annuler
-                    </p>
-                </div>
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="Nom du produit..."
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-lg px-4 py-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    autofocus
+                />
+                {{-- Scanner code-barres désactivé temporairement --}}
             </div>
 
             {{-- Résultats de recherche --}}

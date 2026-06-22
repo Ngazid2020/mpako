@@ -1,2 +1,2 @@
 import './bootstrap';
-import './caisse-scanner';
+// import './caisse-scanner'; // Code-barres désactivé temporairement
