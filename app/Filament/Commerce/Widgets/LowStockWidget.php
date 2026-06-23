@@ -2,16 +2,16 @@
 
 namespace App\Filament\Commerce\Widgets;
 
-use App\Models\Product;
-use App\Traits\HasShieldPermission;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
-use Illuminate\Testing\Fluent\Concerns\Has;
 
 class LowStockWidget extends Widget
 {
-    use HasShieldPermission;
+    public static function canView(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'commerce';
+    }
     protected static ?int    $sort            = 4;
     protected static ?string $pollingInterval = '60s';
 

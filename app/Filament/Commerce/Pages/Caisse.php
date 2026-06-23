@@ -348,6 +348,8 @@ class Caisse extends Page
             ];
             $this->showReceiptModal = true;
 
+            $this->notifyLowStock($shop, $cartSnapshot);
+
         } catch (\RuntimeException $e) {
             Notification::make()
                 ->title('Erreur de stock')
@@ -505,11 +507,49 @@ class Caisse extends Page
             ];
             $this->showReceiptModal = true;
 
+            $this->notifyLowStock($shop, $cartSnapshot);
+
         } catch (\RuntimeException $e) {
             Notification::make()
                 ->title('Erreur de stock')
                 ->body($e->getMessage())
                 ->danger()
+                ->send();
+        }
+    }
+
+    private function notifyLowStock(mixed $shop, array $cartSnapshot): void
+    {
+        $outOfStock = [];
+        $lowStock   = [];
+
+        foreach ($cartSnapshot as $item) {
+            $product = $shop->products()->with('unit')->find($item['product_id']);
+            if (!$product) continue;
+
+            if ($product->stock_qty <= 0) {
+                $outOfStock[] = $product->name;
+            } elseif ($product->stock_qty <= $product->stock_alert) {
+                $unit = $product->unit?->abbreviation ?? '';
+                $lowStock[] = "{$product->name} (reste {$product->stock_qty} {$unit})";
+            }
+        }
+
+        if (!empty($outOfStock)) {
+            Notification::make()
+                ->title('🔴 Rupture de stock !')
+                ->body('À réapprovisionner : ' . implode(', ', $outOfStock))
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+
+        if (!empty($lowStock)) {
+            Notification::make()
+                ->title('🟠 Stock bas')
+                ->body(implode(' · ', $lowStock))
+                ->warning()
+                ->duration(8000)
                 ->send();
         }
     }
