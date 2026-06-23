@@ -117,7 +117,8 @@ class StockMovementResource extends Resource
 
                 Tables\Columns\TextColumn::make('reason')
                     ->label('Motif')
-                    ->limit(30),
+                    ->limit(30)
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Par')

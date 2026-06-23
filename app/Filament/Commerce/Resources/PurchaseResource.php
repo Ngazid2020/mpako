@@ -172,8 +172,9 @@ class PurchaseResource extends Resource
                                     ->default(1)
                                     ->minValue(0.01)
                                     ->live(debounce: 500)
-                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set, $livewire) {
                                         $set('subtotal', (float) $state * (float) $get('unit_cost'));
+                                        self::updateParentTotals($livewire);
                                     })
                                     ->columnSpan(2),
 
@@ -186,8 +187,9 @@ class PurchaseResource extends Resource
                                     ->minValue(0)
                                     ->suffix('KMF')
                                     ->live(debounce: 500)
-                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                        $set('subtotal', (float) $state * (float) $get('quantity'));
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set, $livewire) {
+                                        $set('subtotal', (float) $get('quantity') * (float) $state);
+                                        self::updateParentTotals($livewire);
                                     })
                                     ->columnSpan(2),
 
@@ -280,6 +282,25 @@ class PurchaseResource extends Resource
     // HELPER : Recalculer les totaux
     // ═══════════════════════════════════════════════
 
+    /**
+     * Appelé depuis les callbacks de champs dans un item du Repeater ($get est scopé à la ligne).
+     * $set('subtotal', ...) met à jour $livewire->data synchroniquement, donc on lit
+     * l'état complet via $livewire->data pour obtenir les sous-totaux à jour.
+     */
+    private static function updateParentTotals($livewire): void
+    {
+        $items = $livewire->data['items'] ?? [];
+        $total = collect($items)->sum(fn ($item) => (float) ($item['subtotal'] ?? 0));
+        $paid  = (float) ($livewire->data['paid_amount'] ?? 0);
+
+        $livewire->data['total_amount'] = $total;
+        $livewire->data['debt_amount']  = max(0, $total - $paid);
+    }
+
+    /**
+     * Appelé depuis le Repeater->afterStateUpdated() et paid_amount->afterStateUpdated().
+     * Ici $get est scopé au formulaire racine, donc $get('items') fonctionne correctement.
+     */
     public static function recalculateTotals(Get $get, Set $set): void
     {
         $items = $get('items') ?? [];
