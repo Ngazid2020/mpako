@@ -3,8 +3,113 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KomorShop — Le commerce moderne aux Comores 🇰🇲</title>
-    <meta name="description" content="Stock, caisse, ventes, crédits, dépenses. L'outil complet pour faire grandir ton commerce." />
+
+    {{-- ═══════════ SEO — Basiques ═══════════ --}}
+    <title>KomorShop | Logiciel de gestion commerciale aux Comores — Caisse, Stock, ERP</title>
+    <meta name="description" content="KomorShop est le logiciel de gestion commerciale conçu pour les commerçants comoriens. Caisse enregistreuse, gestion de stock, crédits clients, achats fournisseurs et dépenses en KMF. Accessible depuis votre téléphone." />
+    <meta name="keywords" content="logiciel caisse comores, gestion stock comores, ERP comores, logiciel commerce comores, caisse enregistreuse KMF, gestion commerciale grande comore, anjouan, moheli, komorshop, facturation comores, logiciel vente comores" />
+    <meta name="author" content="KomorShop" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="{{ url('/') }}" />
+
+    {{-- ═══════════ Open Graph (Facebook, WhatsApp, LinkedIn) ═══════════ --}}
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content="{{ url('/') }}" />
+    <meta property="og:site_name"   content="KomorShop" />
+    <meta property="og:locale"      content="fr_KM" />
+    <meta property="og:title"       content="KomorShop | Logiciel de gestion commerciale aux Comores" />
+    <meta property="og:description" content="Caisse enregistreuse, gestion de stock, crédits clients et achats fournisseurs en KMF. L'ERP conçu pour les commerçants comoriens — accessible depuis votre téléphone." />
+    <meta property="og:image"       content="{{ asset('images/og-image.png') }}" />
+    <meta property="og:image:width"  content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt"    content="KomorShop — Logiciel de gestion commerciale aux Comores" />
+
+    {{-- ═══════════ Twitter / X Card ═══════════ --}}
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="KomorShop | Logiciel de gestion commerciale aux Comores" />
+    <meta name="twitter:description" content="Caisse, stock, crédits clients, achats fournisseurs en KMF. L'ERP conçu pour les commerçants comoriens." />
+    <meta name="twitter:image"       content="{{ asset('images/og-image.png') }}" />
+
+    {{-- ═══════════ Favicons ═══════════ --}}
+    <link rel="icon"             type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}" />
+    <link rel="icon"             type="image/x-icon"            href="{{ asset('favicon.ico') }}" />
+    <link rel="apple-touch-icon" sizes="192x192"                href="{{ asset('images/icons/icon-192x192.png') }}" />
+
+    {{-- ═══════════ Données structurées JSON-LD ═══════════ --}}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Organization",
+                "@id": "{{ url('/') }}/#organization",
+                "name": "KomorShop",
+                "url": "{{ url('/') }}",
+                "logo": {
+                    "@type": "ImageObject",
+                    "url": "{{ asset('images/logo_komorshop.png') }}",
+                    "width": 354,
+                    "height": 74
+                },
+                "description": "Logiciel de gestion commerciale pour les commerçants comoriens",
+                "areaServed": {
+                    "@type": "Country",
+                    "name": "Comores"
+                },
+                "inLanguage": "fr"
+            },
+            {
+                "@type": "SoftwareApplication",
+                "@id": "{{ url('/') }}/#software",
+                "name": "KomorShop",
+                "url": "{{ url('/') }}",
+                "applicationCategory": "BusinessApplication",
+                "applicationSubCategory": "ERP, Caisse, Gestion de stock",
+                "operatingSystem": "Web, Android, iOS",
+                "inLanguage": "fr",
+                "description": "KomorShop est un ERP de gestion commerciale multi-tenant pour commerçants comoriens. Il inclut une caisse enregistreuse, la gestion de stock, les crédits clients, les achats fournisseurs et les dépenses en francs comoriens (KMF).",
+                "screenshot": "{{ asset('images/og-image.png') }}",
+                "author": {
+                    "@id": "{{ url('/') }}/#organization"
+                },
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "KMF",
+                    "description": "Essai gratuit disponible"
+                },
+                "featureList": [
+                    "Caisse enregistreuse",
+                    "Gestion de stock",
+                    "Crédits clients",
+                    "Achats fournisseurs",
+                    "Gestion des dépenses",
+                    "Application mobile PWA",
+                    "Multi-commerces"
+                ]
+            },
+            {
+                "@type": "WebSite",
+                "@id": "{{ url('/') }}/#website",
+                "url": "{{ url('/') }}",
+                "name": "KomorShop",
+                "description": "Logiciel de gestion commerciale aux Comores",
+                "publisher": {
+                    "@id": "{{ url('/') }}/#organization"
+                },
+                "inLanguage": "fr",
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": {
+                        "@type": "EntryPoint",
+                        "urlTemplate": "{{ url('/') }}?q={search_term_string}"
+                    },
+                    "query-input": "required name=search_term_string"
+                }
+            }
+        ]
+    }
+    </script>
 
     <link rel="preconnect" href="https://fonts.bunny.net" />
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800,900&display=swap" rel="stylesheet" />
