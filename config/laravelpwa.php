@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'name'             => 'KomorShop',
+    'name'             => 'BeeZ',
     'manifest' => [
-        'name'              => 'KomorShop — Mon commerce',
-        'short_name'        => 'KomorShop',
+        'name'              => 'BeeZ — Mon commerce',
+        'short_name'        => 'BeeZ',
         'start_url'         => '/commerce',
         'background_color'  => '#ffffff',
         'theme_color'       => '#2563eb',

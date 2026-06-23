@@ -5,28 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     {{-- ═══════════ SEO — Basiques ═══════════ --}}
-    <title>KomorShop | Logiciel de gestion commerciale aux Comores — Caisse, Stock, ERP</title>
-    <meta name="description" content="KomorShop est le logiciel de gestion commerciale conçu pour les commerçants comoriens. Caisse enregistreuse, gestion de stock, crédits clients, achats fournisseurs et dépenses en KMF. Accessible depuis votre téléphone." />
-    <meta name="keywords" content="logiciel caisse comores, gestion stock comores, ERP comores, logiciel commerce comores, caisse enregistreuse KMF, gestion commerciale grande comore, anjouan, moheli, komorshop, facturation comores, logiciel vente comores" />
-    <meta name="author" content="KomorShop" />
+    <title>BeeZ | Logiciel de gestion commerciale aux Comores — Caisse, Stock, ERP</title>
+    <meta name="description" content="BeeZ est le logiciel de gestion commerciale conçu pour les commerçants comoriens. Caisse enregistreuse, gestion de stock, crédits clients, achats fournisseurs et dépenses en KMF. Accessible depuis votre téléphone." />
+    <meta name="keywords" content="logiciel caisse comores, gestion stock comores, ERP comores, logiciel commerce comores, caisse enregistreuse KMF, gestion commerciale grande comore, anjouan, moheli, BeeZ, facturation comores, logiciel vente comores" />
+    <meta name="author" content="BeeZ" />
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <link rel="canonical" href="{{ url('/') }}" />
 
     {{-- ═══════════ Open Graph (Facebook, WhatsApp, LinkedIn) ═══════════ --}}
     <meta property="og:type"        content="website" />
     <meta property="og:url"         content="{{ url('/') }}" />
-    <meta property="og:site_name"   content="KomorShop" />
+    <meta property="og:site_name"   content="BeeZ" />
     <meta property="og:locale"      content="fr_KM" />
-    <meta property="og:title"       content="KomorShop | Logiciel de gestion commerciale aux Comores" />
+    <meta property="og:title"       content="BeeZ | Logiciel de gestion commerciale aux Comores" />
     <meta property="og:description" content="Caisse enregistreuse, gestion de stock, crédits clients et achats fournisseurs en KMF. L'ERP conçu pour les commerçants comoriens — accessible depuis votre téléphone." />
     <meta property="og:image"       content="{{ asset('images/og-image.png') }}" />
     <meta property="og:image:width"  content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt"    content="KomorShop — Logiciel de gestion commerciale aux Comores" />
+    <meta property="og:image:alt"    content="BeeZ — Logiciel de gestion commerciale aux Comores" />
 
     {{-- ═══════════ Twitter / X Card ═══════════ --}}
     <meta name="twitter:card"        content="summary_large_image" />
-    <meta name="twitter:title"       content="KomorShop | Logiciel de gestion commerciale aux Comores" />
+    <meta name="twitter:title"       content="BeeZ | Logiciel de gestion commerciale aux Comores" />
     <meta name="twitter:description" content="Caisse, stock, crédits clients, achats fournisseurs en KMF. L'ERP conçu pour les commerçants comoriens." />
     <meta name="twitter:image"       content="{{ asset('images/og-image.png') }}" />
 
@@ -43,11 +43,11 @@
             {
                 "@type": "Organization",
                 "@id": "{{ url('/') }}/#organization",
-                "name": "KomorShop",
+                "name": "BeeZ",
                 "url": "{{ url('/') }}",
                 "logo": {
                     "@type": "ImageObject",
-                    "url": "{{ asset('images/logo_komorshop.png') }}",
+                    "url": "{{ asset('images/logo_beez.png') }}",
                     "width": 354,
                     "height": 74
                 },
@@ -61,13 +61,13 @@
             {
                 "@type": "SoftwareApplication",
                 "@id": "{{ url('/') }}/#software",
-                "name": "KomorShop",
+                "name": "BeeZ",
                 "url": "{{ url('/') }}",
                 "applicationCategory": "BusinessApplication",
                 "applicationSubCategory": "ERP, Caisse, Gestion de stock",
                 "operatingSystem": "Web, Android, iOS",
                 "inLanguage": "fr",
-                "description": "KomorShop est un ERP de gestion commerciale multi-tenant pour commerçants comoriens. Il inclut une caisse enregistreuse, la gestion de stock, les crédits clients, les achats fournisseurs et les dépenses en francs comoriens (KMF).",
+                "description": "BeeZ est un ERP de gestion commerciale multi-tenant pour commerçants comoriens. Il inclut une caisse enregistreuse, la gestion de stock, les crédits clients, les achats fournisseurs et les dépenses en francs comoriens (KMF).",
                 "screenshot": "{{ asset('images/og-image.png') }}",
                 "author": {
                     "@id": "{{ url('/') }}/#organization"
@@ -92,7 +92,7 @@
                 "@type": "WebSite",
                 "@id": "{{ url('/') }}/#website",
                 "url": "{{ url('/') }}",
-                "name": "KomorShop",
+                "name": "BeeZ",
                 "description": "Logiciel de gestion commerciale aux Comores",
                 "publisher": {
                     "@id": "{{ url('/') }}/#organization"
@@ -133,7 +133,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
 
             <a href="#" class="flex items-center group magnetic">
-                <img src="/images/logo_komorshop.png" alt="KomorShop" class="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
+                <img src="/images/logo_beez.png" alt="BeeZ" class="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
             </a>
 
             <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-700">
@@ -251,7 +251,7 @@
                             <div class="w-3 h-3 rounded-full bg-red-400"></div>
                             <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
                             <div class="w-3 h-3 rounded-full bg-green-400"></div>
-                            <div class="ml-auto text-xs text-gray-500 font-mono">komorshop.com</div>
+                            <div class="ml-auto text-xs text-gray-500 font-mono">BeeZ.com</div>
                         </div>
 
                         <div class="p-6 space-y-4 relative">
@@ -407,7 +407,7 @@
 
             <div class="reveal mt-16 inline-flex items-center gap-3 bg-gradient-to-r from-primary-600 via-cyan-600 to-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-2xl glow">
                 <span class="text-2xl">✨</span>
-                KomorShop répond à tout ça
+                BeeZ répond à tout ça
             </div>
         </div>
     </section>
@@ -544,7 +544,7 @@
 
             <div class="space-y-4 stagger-container">
                 @foreach([
-                    ['Sans internet ?', 'KomorShop fonctionne dans ton navigateur, une connexion est nécessaire.'],
+                    ['Sans internet ?', 'BeeZ fonctionne dans ton navigateur, une connexion est nécessaire.'],
                     ['Mes données sont sécurisées ?', 'Oui. Stockées de manière sécurisée et accessibles uniquement par toi.'],
                     ['Sur téléphone ?', 'Absolument. L\'interface s\'adapte à tous les écrans.'],
                     ['Comment obtenir de l\'aide ?', 'Plan Pro = support WhatsApp prioritaire. Plan Gratuit = email.'],
@@ -576,7 +576,7 @@
                 Prêt à faire<br>grandir ton commerce ?
             </h2>
             <p class="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-                Rejoins les commerçants qui ont choisi KomorShop
+                Rejoins les commerçants qui ont choisi BeeZ
             </p>
 
             <div class="relative inline-block">
@@ -604,7 +604,7 @@
                 <div class="lg:col-span-2">
                     <div class="flex items-center gap-2 mb-4">
                         <div class="bg-white rounded-xl px-3 py-1.5 shadow-lg">
-                            <img src="/images/logo_komorshop.png" alt="KomorShop" class="h-9 w-auto" />
+                            <img src="/images/logo_beez.png" alt="BeeZ" class="h-9 w-auto" />
                         </div>
                     </div>
                     <p class="text-sm leading-relaxed max-w-md">
@@ -624,7 +624,7 @@
                 <div>
                     <h4 class="text-white font-bold mb-4">Contact</h4>
                     <ul class="space-y-2 text-sm">
-                        <li>📧 contact@komorshop.com</li>
+                        <li>📧 contact@BeeZ.com</li>
                         <li>📱 +269 333 00 00</li>
                         <li>📍 Moroni, Grande Comore</li>
                     </ul>
@@ -632,7 +632,7 @@
             </div>
 
             <div class="pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-                <p>© {{ date('Y') }} KomorShop. Tous droits réservés.</p>
+                <p>© {{ date('Y') }} BeeZ. Tous droits réservés.</p>
                 <p>Fait avec ❤️ aux Comores 🇰🇲</p>
             </div>
         </div>

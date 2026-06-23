@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Compte en attente — KomorShop</title>
+    <title>Compte en attente — BeeZ</title>
     @vite(['resources/css/app.css'])
 </head>
 <body class="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 font-sans antialiased flex items-center justify-center px-4 py-12">
@@ -16,7 +16,7 @@
                 <div class="w-12 h-12 bg-gradient-to-br from-blue-500 via-cyan-500 to-emerald-500 rounded-xl flex items-center justify-center text-white text-2xl font-black shadow-lg">
                     K
                 </div>
-                <span class="text-2xl font-black text-gray-900">KomorShop</span>
+                <span class="text-2xl font-black text-gray-900">BeeZ</span>
             </a>
         </div>
 
@@ -41,7 +41,7 @@
 
                 <p class="text-gray-600 leading-relaxed mb-6">
                     Votre compte est en attente de validation.<br>
-                    <strong class="text-gray-900">Un administrateur KomorShop doit activer votre accès</strong>
+                    <strong class="text-gray-900">Un administrateur BeeZ doit activer votre accès</strong>
                     avant que vous puissiez vous connecter.
                 </p>
 
@@ -83,7 +83,7 @@
         </div>
 
         <p class="text-center text-xs text-gray-400 mt-6">
-            © {{ date('Y') }} KomorShop — Fait avec ❤️ aux Comores 🇰🇲
+            © {{ date('Y') }} BeeZ — Fait avec ❤️ aux Comores 🇰🇲
         </p>
     </div>
 

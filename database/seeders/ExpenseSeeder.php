@@ -16,7 +16,7 @@ class ExpenseSeeder extends Seeder
         $user = User::where('email', 'ali@test.com')->first();
 
         if (!$shop || !$user) {
-            $this->command->error('Lance d\'abord KomorShopSeeder');
+            $this->command->error('Lance d\'abord BeeZSeeder');
             return;
         }
 

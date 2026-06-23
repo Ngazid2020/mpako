@@ -18,12 +18,12 @@ class DatabaseSeeder extends Seeder
         User::factory()->create([
             'name'     => 'Admin User',
             'phone'    => '+2699000000',
-            'email'    => 'admin@komorshop.com',
+            'email'    => 'admin@BeeZ.com',
             'is_admin' => true,
         ]);
 
         // $this->call([
-        //     KomorShopSeeder::class,
+        //     BeeZSeeder::class,
         //     StockSeeder::class,
         //     PurchaseSeeder::class,
         //     CreditSeeder::class,

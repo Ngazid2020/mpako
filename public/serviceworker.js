@@ -79,7 +79,7 @@ self.addEventListener('push', function (event) {
     if (!event.data) return;
 
     var data = event.data.json();
-    var title = data.title || 'KomorShop';
+    var title = data.title || 'BeeZ';
     var options = {
         body:    data.body    || '',
         icon:    data.icon    || '/images/icons/icon-192x192.png',

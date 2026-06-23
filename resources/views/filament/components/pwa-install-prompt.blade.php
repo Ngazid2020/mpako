@@ -14,11 +14,11 @@
 ">
     <div style="display:flex; align-items:center; gap:12px; min-width:0;">
         <img src="/images/icons/icon-72x72.png"
-             alt="KomorShop"
+             alt="BeeZ"
              width="40" height="40"
              style="border-radius:8px; flex-shrink:0;">
         <div style="min-width:0;">
-            <div style="font-weight:700; font-size:14px; line-height:1.3;">Installer KomorShop</div>
+            <div style="font-weight:700; font-size:14px; line-height:1.3;">Installer BeeZ</div>
             <div style="font-size:12px; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                 Accède à ton commerce depuis l'écran d'accueil
             </div>

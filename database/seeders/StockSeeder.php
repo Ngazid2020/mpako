@@ -15,7 +15,7 @@ class StockSeeder extends Seeder
         $shop = Shop::where('slug', 'boutique-ali')->first();
 
         if (!$shop) {
-            $this->command->error('Lance d\'abord KomorShopSeeder');
+            $this->command->error('Lance d\'abord BeeZSeeder');
             return;
         }
 

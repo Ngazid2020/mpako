@@ -8,7 +8,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
-class KomorShopSeeder extends Seeder
+class BeeZSeeder extends Seeder
 {
     public function run(): void
     {   
@@ -19,9 +19,9 @@ class KomorShopSeeder extends Seeder
         $admin = User::firstOrCreate(
             ['phone' => '+2699000000'],
             [
-                'name'     => 'Admin KomorShop',
+                'name'     => 'Admin BeeZ',
                 'phone'    => '+2699000000',
-                'email'    => 'admin@komorshop.com',
+                'email'    => 'admin@BeeZ.com',
                 'password' => Hash::make('password'),
                 'is_admin' => true,
             ]
@@ -32,7 +32,7 @@ class KomorShopSeeder extends Seeder
             $admin->assignRole($superAdminRole);
         }
 
-        $this->command->info('✅ Super-admin créé : admin@komorshop.com / password');
+        $this->command->info('✅ Super-admin créé : admin@BeeZ.com / password');
 
         // ─────────────────────────────────────
         // 2. Créer des commerçants de test

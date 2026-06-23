@@ -443,7 +443,7 @@
 
             {{-- Message contextuel --}}
             <p class="text-center text-xs text-gray-400 dark:text-gray-500 mt-2">
-                ⚠️ Estimation basée sur les données saisies dans KomorShop
+                ⚠️ Estimation basée sur les données saisies dans BeeZ
             </p>
         </div>
     </div>
