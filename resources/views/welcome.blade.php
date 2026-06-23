@@ -48,8 +48,8 @@
                 "logo": {
                     "@type": "ImageObject",
                     "url": "{{ asset('images/logo_beez.png') }}",
-                    "width": 354,
-                    "height": 74
+                    "width": 457,
+                    "height": 465
                 },
                 "description": "Logiciel de gestion commerciale pour les commerçants comoriens",
                 "areaServed": {
@@ -603,9 +603,7 @@
 
                 <div class="lg:col-span-2">
                     <div class="flex items-center gap-2 mb-4">
-                        <div class="bg-white rounded-xl px-3 py-1.5 shadow-lg">
-                            <img src="/images/logo_beez.png" alt="BeeZ" class="h-9 w-auto" />
-                        </div>
+                        <img src="/images/logo_beez.png" alt="BeeZ" class="h-10 w-auto" />
                     </div>
                     <p class="text-sm leading-relaxed max-w-md">
                         Le SaaS de gestion commerciale conçu pour les Comores 🇰🇲
