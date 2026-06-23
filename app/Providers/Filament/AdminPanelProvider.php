@@ -31,6 +31,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login(\App\Filament\Admin\Pages\Auth\Login::class)
+            ->brandLogo(asset('images/logo_komorshop.png'))
+            ->brandLogoHeight('2.75rem')
+            ->favicon(asset('images/favicon-32.png'))
             ->colors([
                 'primary' => Color::Emerald,
             ])

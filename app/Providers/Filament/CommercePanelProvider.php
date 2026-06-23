@@ -40,8 +40,10 @@ class CommercePanelProvider extends PanelProvider
                 'primary' => Color::Blue,
             ])
 
-            // Nom visible
-            ->brandName('KomorShop')
+            // Logo et favicon
+            ->brandLogo(asset('images/logo_komorshop.png'))
+            ->brandLogoHeight('2.75rem')
+            ->favicon(asset('images/favicon-32.png'))
             ->viteTheme('resources/css/filament/commerce/theme.css')
             // ──────────────────────────────────────
             // MULTITENANCY : La clé de tout !

@@ -27,11 +27,8 @@
     <header class="fixed top-1 left-0 right-0 z-50 glass">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
 
-            <a href="#" class="flex items-center gap-2 group magnetic">
-                <div class="w-10 h-10 bg-gradient-to-br from-primary-500 via-cyan-500 to-emerald-500 rounded-xl flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-                    K
-                </div>
-                <span class="text-xl font-black text-gray-900">KomorShop</span>
+            <a href="#" class="flex items-center group magnetic">
+                <img src="/images/logo_komorshop.png" alt="KomorShop" class="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
             </a>
 
             <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-700">
@@ -501,10 +498,9 @@
 
                 <div class="lg:col-span-2">
                     <div class="flex items-center gap-2 mb-4">
-                        <div class="w-12 h-12 bg-gradient-to-br from-primary-500 via-cyan-500 to-emerald-500 rounded-xl flex items-center justify-center text-white text-2xl font-black shadow-lg">
-                            K
+                        <div class="bg-white rounded-xl px-3 py-1.5 shadow-lg">
+                            <img src="/images/logo_komorshop.png" alt="KomorShop" class="h-9 w-auto" />
                         </div>
-                        <span class="text-2xl font-black text-white">KomorShop</span>
                     </div>
                     <p class="text-sm leading-relaxed max-w-md">
                         Le SaaS de gestion commerciale conçu pour les Comores 🇰🇲
