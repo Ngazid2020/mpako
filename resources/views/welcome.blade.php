@@ -47,7 +47,7 @@
                 "url": "{{ url('/') }}",
                 "logo": {
                     "@type": "ImageObject",
-                    "url": "{{ asset('images/logo_beez.png') }}",
+                    "url": "{{ asset('images/logo-filament-beez.png') }}",
                     "width": 457,
                     "height": 465
                 },
@@ -133,7 +133,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
 
             <a href="#" class="flex items-center group magnetic">
-                <img src="/images/logo_beez.png" alt="BeeZ" class="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
+                <img src="/images/logo-filament-beez.png" alt="BeeZ" class="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
             </a>
 
             <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-700">
