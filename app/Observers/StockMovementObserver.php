@@ -26,8 +26,8 @@ class StockMovementObserver
         $movement->stock_after = max(0, $stockAfter); // Jamais négatif
 
         // ── Ajouter shop_id et user_id automatiquement ──
-        $movement->shop_id = Filament::getTenant()->id;
-        $movement->user_id = auth()->id();
+        $movement->shop_id ??= Filament::getTenant()?->getKey();
+        $movement->user_id ??= auth()->id();
     }
 
     public function created(StockMovement $movement): void

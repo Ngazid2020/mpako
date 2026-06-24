@@ -1,4 +1,4 @@
-var CACHE_NAME = 'mpako-v1';
+var CACHE_NAME = 'beez-v1';
 
 var STATIC_ASSETS = [
     '/offline',
@@ -28,7 +28,7 @@ self.addEventListener('activate', function (event) {
         caches.keys().then(function (keys) {
             return Promise.all(
                 keys
-                    .filter(function (key) { return key.startsWith('mpako-') && key !== CACHE_NAME; })
+                    .filter(function (key) { return key.startsWith('beez-') && key !== CACHE_NAME; })
                     .map(function (key) { return caches.delete(key); })
             );
         }).then(function () {
@@ -78,7 +78,7 @@ self.addEventListener('fetch', function (event) {
 self.addEventListener('push', function (event) {
     if (!event.data) return;
 
-    var data = event.data.json();
+    try { var data = event.data.json(); } catch (e) { var data = { title: 'BeeZ', body: '' }; }
     var title = data.title || 'BeeZ';
     var options = {
         body:    data.body    || '',

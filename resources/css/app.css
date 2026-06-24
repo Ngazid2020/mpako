@@ -390,7 +390,5 @@
         pointer-events: none;
     }
 
-    #particle-network {
-        pointer-events: auto;
-    }
+
 }

@@ -16,4 +16,10 @@ class EditCredit extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data['remaining_amount'] = max(0, (float) $data['total_amount'] - (float) $this->record->paid_amount);
+        return $data;
+    }
 }

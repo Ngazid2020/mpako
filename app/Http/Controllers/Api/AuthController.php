@@ -18,15 +18,24 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'phone'    => ['required', 'string'],
-            'password' => ['required', 'string'],
+            'phone'    => ['required', 'string', 'max:30'],
+            'password' => ['required', 'string', 'max:255'],
         ]);
 
         $user = User::where('phone', $request->phone)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        // Timing-safe : toujours vérifier le hash même si l'user n'existe pas
+        $passwordValid = $user && Hash::check($request->password, $user->password);
+
+        if (! $passwordValid) {
             throw ValidationException::withMessages([
                 'phone' => ['Identifiants incorrects.'],
+            ]);
+        }
+
+        if (! $user->is_approved) {
+            throw ValidationException::withMessages([
+                'phone' => ['Compte en attente de validation.'],
             ]);
         }
 
@@ -41,19 +50,17 @@ class AuthController extends Controller
             'success' => true,
             'token'   => $token,
             'user'    => [
-                'id'       => $user->id,
-                'name'     => $user->name,
-                'phone'    => $user->phone,
-                'is_admin' => $user->is_admin,
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'phone' => $user->phone,
             ],
-            'shops' => $user->shops->map(fn ($shop) => [
-                'id'        => $shop->id,
-                'name'      => $shop->name,
-                'slug'      => $shop->slug,
-                'island'    => $shop->island,
-                'city'      => $shop->city,
-                'currency'  => $shop->currency,
-                'is_active' => $shop->is_active,
+            'shops' => $user->shops->filter(fn ($shop) => $shop->is_active)->values()->map(fn ($shop) => [
+                'id'       => $shop->id,
+                'name'     => $shop->name,
+                'slug'     => $shop->slug,
+                'island'   => $shop->island,
+                'city'     => $shop->city,
+                'currency' => $shop->currency,
             ]),
         ]);
     }
@@ -84,19 +91,17 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'user'    => [
-                'id'       => $user->id,
-                'name'     => $user->name,
-                'phone'    => $user->phone,
-                'is_admin' => $user->is_admin,
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'phone' => $user->phone,
             ],
-            'shops' => $user->shops->map(fn ($shop) => [
-                'id'        => $shop->id,
-                'name'      => $shop->name,
-                'slug'      => $shop->slug,
-                'island'    => $shop->island,
-                'city'      => $shop->city,
-                'currency'  => $shop->currency,
-                'is_active' => $shop->is_active,
+            'shops' => $user->shops->filter(fn ($shop) => $shop->is_active)->values()->map(fn ($shop) => [
+                'id'       => $shop->id,
+                'name'     => $shop->name,
+                'slug'     => $shop->slug,
+                'island'   => $shop->island,
+                'city'     => $shop->city,
+                'currency' => $shop->currency,
             ]),
         ]);
     }

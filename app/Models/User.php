@@ -41,7 +41,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             'password'                  => 'hashed',
             'is_admin'                  => 'boolean',
             'is_approved'               => 'boolean',
-            'two_factor_recovery_codes' => 'array',
+            'two_factor_secret'         => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at'   => 'datetime',
         ];
     }
