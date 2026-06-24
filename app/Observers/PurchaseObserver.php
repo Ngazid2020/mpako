@@ -115,19 +115,24 @@ class PurchaseObserver
                     continue;
                 }
 
+                // Nombre d'unités de détail entrant en stock
+                $convQty    = max(1, (float) ($item->conversion_qty ?? 1));
+                $stockUnits = $item->quantity * $convQty;
+
                 // Créer le mouvement de stock entrant
                 StockMovement::create([
                     'shop_id'    => $purchase->shop_id,
                     'product_id' => $item->product_id,
                     'user_id'    => $purchase->user_id,
                     'type'       => 'in',
-                    'quantity'   => $item->quantity,
-                    'reason'     => "Achat {$purchase->reference}",
+                    'quantity'   => $stockUnits,
+                    'reason'     => "Achat {$purchase->reference}" . ($convQty > 1 ? " ({$item->quantity} colis × {$convQty})" : ''),
                 ]);
 
-                // Mettre à jour le prix d'achat (dernier connu) — même shop uniquement
+                // Mettre à jour le prix d'achat par unité de détail — même shop uniquement
                 if ($item->product->shop_id === $purchase->shop_id) {
-                    $item->product->update(['buy_price' => $item->unit_cost]);
+                    $costPerUnit = round($item->unit_cost / $convQty, 2);
+                    $item->product->update(['buy_price' => $costPerUnit]);
                 }
             }
 
@@ -163,12 +168,15 @@ class PurchaseObserver
         DB::transaction(function () use ($purchase) {
 
             foreach ($purchase->items as $item) {
+                $convQty    = max(1, (float) ($item->conversion_qty ?? 1));
+                $stockUnits = $item->quantity * $convQty;
+
                 StockMovement::create([
                     'shop_id'    => $purchase->shop_id,
                     'product_id' => $item->product_id,
                     'user_id'    => auth()->id() ?? $purchase->user_id,
                     'type'       => 'out',
-                    'quantity'   => $item->quantity,
+                    'quantity'   => $stockUnits,
                     'reason'     => "Annulation achat {$purchase->reference}",
                 ]);
             }
