@@ -18,3 +18,7 @@ Route::get('/sitemap.xml', function () {
 
 Route::get('/commerce/pending', fn () => view('auth.pending'))
     ->name('register.pending');
+
+Route::middleware(['web', 'auth'])
+    ->get('/commerce/{shop}/rapports/pdf/{type}', [\App\Http\Controllers\ReportPdfController::class, 'generate'])
+    ->name('commerce.reports.pdf');
