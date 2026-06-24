@@ -30,11 +30,11 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            LowStockWidget::class,      // Stock bas — pleine largeur
             StatsOverviewWidget::class, // Stats KPI — pleine largeur
             SalesChartWidget::class,
             TopProductsWidget::class,   // Top produits — colonne droite
-            ExpensesWidget::class,    // Graphique — colonne gauche
-            LowStockWidget::class,      // Stock bas — pleine largeur
+            ExpensesWidget::class,      // Graphique — colonne gauche
         ];
     }
 }

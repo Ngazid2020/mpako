@@ -12,7 +12,7 @@ class LowStockWidget extends Widget
     {
         return Filament::getCurrentPanel()?->getId() === 'commerce';
     }
-    protected static ?int    $sort            = 4;
+    protected static ?int    $sort            = 0;
     protected static ?string $pollingInterval = '60s';
 
     // Ce widget prend toute la largeur
