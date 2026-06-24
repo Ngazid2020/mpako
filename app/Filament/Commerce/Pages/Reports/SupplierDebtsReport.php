@@ -93,7 +93,7 @@ class SupplierDebtsReport extends Page implements HasTable
 
                 Tables\Filters\SelectFilter::make('supplier_id')
                     ->label('Fournisseur')
-                    ->relationship('supplier', 'name')
+                    ->relationship('supplier', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()->id))
                     ->searchable()
                     ->preload()
                     ->native(false),

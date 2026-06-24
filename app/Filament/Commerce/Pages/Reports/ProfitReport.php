@@ -38,6 +38,10 @@ class ProfitReport extends Page implements HasTable
         $this->year  = now()->format('Y');
     }
 
+    public function updatedPeriod(): void { $this->resetTable(); }
+    public function updatedMonth(): void  { $this->resetTable(); }
+    public function updatedYear(): void   { $this->resetTable(); }
+
     public function getPeriodDates(): array
     {
         $now = CarbonImmutable::now();
@@ -161,7 +165,7 @@ class ProfitReport extends Page implements HasTable
                         round($stats['revenue']),
                         round($stats['purchaseCost']),
                         round($stats['expenses']),
-                        round(max(0, $stats['netProfit'])),
+                        round($stats['netProfit']),
                     ],
                     'backgroundColor' => [
                         'rgba(16, 185, 129, 0.85)',

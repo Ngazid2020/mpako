@@ -46,17 +46,14 @@
     <script>
     (function () {
         var config = @json($this->getChartConfig());
-        function render() {
+        var tryRender = function () {
+            if (!window.Chart) { setTimeout(tryRender, 80); return; }
             var el = document.getElementById('chart-supplier-debts');
-            if (!el || !window.Chart) return;
+            if (!el) return;
             if (el._ch) el._ch.destroy();
             el._ch = new Chart(el, config);
-        }
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', render);
-        } else {
-            render();
-        }
+        };
+        tryRender();
     })();
     </script>
 
