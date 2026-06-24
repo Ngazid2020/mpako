@@ -22,14 +22,6 @@
     border-bottom: 1px solid rgba(232, 208, 0, 0.18) !important;
 }
 
-/* Tenant name — teal foncé, lisible sur fond blanc */
-.fi-tenant-menu-trigger-button {
-    color: #6d129e !important;
-}
-.fi-tenant-menu-trigger-button:hover {
-    background-color: rgba(214, 222, 222, 0.07) !important;
-    color: #0a4848 !important;
-}
 
 /* Topbar droit — même ombre jaune que le sidebar-header */
 .fi-topbar nav {
@@ -104,12 +96,22 @@
     background-color: rgba(255, 255, 255, 0.18) !important;
 }
 
-/* Tenant menu trigger */
-.fi-tenant-menu-trigger-button {
-    color: rgba(193, 20, 20, 0.85) !important;
+/* Tenant menu — texte blanc lisible sur fond teal */
+.fi-tenant-menu-trigger {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
-.fi-tenant-menu-trigger-button:hover {
-    background-color: rgba(255, 255, 255, 0.09) !important;
+.fi-tenant-menu-trigger span {
+    color: #ffffff !important;
+}
+.fi-tenant-menu-trigger svg {
+    color: rgba(255, 255, 255, 0.65) !important;
+}
+.fi-tenant-menu-trigger:hover {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.24) !important;
+}
+.fi-tenant-menu-trigger:hover svg {
     color: #ffffff !important;
 }
 
