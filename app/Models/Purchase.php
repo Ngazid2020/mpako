@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Purchase extends Model
 {
@@ -63,23 +64,20 @@ class Purchase extends Model
      */
     public static function generateReference(int $shopId): string
     {
-        $date   = now()->format('Ymd');
-        $prefix = "ACH-{$date}";
+        return DB::transaction(function () use ($shopId) {
+            $date   = now()->format('Ymd');
+            $prefix = "ACH-{$date}";
 
-        $lastPurchase = static::where('shop_id', $shopId)
-            ->where('reference', 'like', $prefix . '%')
-            ->lockForUpdate()
-            ->orderBy('reference', 'desc')
-            ->first();
+            $lastPurchase = static::where('shop_id', $shopId)
+                ->where('reference', 'like', $prefix . '%')
+                ->lockForUpdate()
+                ->orderBy('reference', 'desc')
+                ->first();
 
-        if (!$lastPurchase) {
-            return $prefix . '-0001';
-        }
+            $lastNumber = $lastPurchase ? (int) substr($lastPurchase->reference, -4) : 0;
 
-        $lastNumber = (int) substr($lastPurchase->reference, -4);
-        $newNumber  = $lastNumber + 1;
-
-        return $prefix . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+            return $prefix . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        });
     }
 
     // ─────────────────────────────────────────────

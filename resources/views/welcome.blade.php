@@ -42,12 +42,12 @@
         "@graph": [
             {
                 "@type": "Organization",
-                "@id": "{{ url('/') }}/#organization",
+                "@id": {!! json_encode(url('/') . '/#organization', JSON_UNESCAPED_SLASHES) !!},
                 "name": "BeeZ",
-                "url": "{{ url('/') }}",
+                "url": {!! json_encode(url('/'), JSON_UNESCAPED_SLASHES) !!},
                 "logo": {
                     "@type": "ImageObject",
-                    "url": "{{ asset('images/logo-filament-beez.png') }}",
+                    "url": {!! json_encode(asset('images/logo-filament-beez.png'), JSON_UNESCAPED_SLASHES) !!},
                     "width": 457,
                     "height": 465
                 },
@@ -60,17 +60,17 @@
             },
             {
                 "@type": "SoftwareApplication",
-                "@id": "{{ url('/') }}/#software",
+                "@id": {!! json_encode(url('/') . '/#software', JSON_UNESCAPED_SLASHES) !!},
                 "name": "BeeZ",
-                "url": "{{ url('/') }}",
+                "url": {!! json_encode(url('/'), JSON_UNESCAPED_SLASHES) !!},
                 "applicationCategory": "BusinessApplication",
                 "applicationSubCategory": "ERP, Caisse, Gestion de stock",
                 "operatingSystem": "Web, Android, iOS",
                 "inLanguage": "fr",
                 "description": "BeeZ est un ERP de gestion commerciale multi-tenant pour commerçants comoriens. Il inclut une caisse enregistreuse, la gestion de stock, les crédits clients, les achats fournisseurs et les dépenses en francs comoriens (KMF).",
-                "screenshot": "{{ asset('images/og-image.png') }}",
+                "screenshot": {!! json_encode(asset('images/og-image.png'), JSON_UNESCAPED_SLASHES) !!},
                 "author": {
-                    "@id": "{{ url('/') }}/#organization"
+                    "@id": {!! json_encode(url('/') . '/#organization', JSON_UNESCAPED_SLASHES) !!}
                 },
                 "offers": {
                     "@type": "Offer",
@@ -90,14 +90,14 @@
             },
             {
                 "@type": "WebSite",
-                "@id": "{{ url('/') }}/#website",
-                "url": "{{ url('/') }}",
+                "@id": {!! json_encode(url('/') . '/#website', JSON_UNESCAPED_SLASHES) !!},
+                "url": {!! json_encode(url('/'), JSON_UNESCAPED_SLASHES) !!},
                 "name": "BeeZ",
                 "description": "Logiciel de gestion commerciale aux Comores",
                 "publisher": {
-                    "@id": "{{ url('/') }}/#organization"
+                    "@id": {!! json_encode(url('/') . '/#organization', JSON_UNESCAPED_SLASHES) !!}
                 },
-                "inLanguage": "fr",
+                "inLanguage": "fr"
             }
         ]
     }
@@ -178,7 +178,7 @@
         <div class="starry-bg absolute inset-0 pointer-events-none"></div>
 
         {{-- Particles network --}}
-        <canvas id="particle-hero" class="opacity-30"></canvas>
+        <canvas id="particle-hero" class="opacity-30 pointer-events-none"></canvas>
 
         <div class="relative max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center z-10">
 

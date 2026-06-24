@@ -6,7 +6,7 @@ use App\Traits\HasShieldPermissionPages;
 use App\Traits\HasShieldPermission;
 use Filament\Pages\Page;
 use Filament\Facades\Filament;
-use Illuminate\Support\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 class Benefice extends Page
@@ -40,29 +40,31 @@ class Benefice extends Page
 
     public function getPeriodDates(): array
     {
+        $now = CarbonImmutable::now();
+
         return match($this->period) {
             'today' => [
-                'start' => today(),
-                'end'   => today(),
-                'label' => "Aujourd'hui — " . today()->format('d/m/Y'),
+                'start' => $now->startOfDay(),
+                'end'   => $now->endOfDay(),
+                'label' => "Aujourd'hui — " . $now->format('d/m/Y'),
             ],
             'week' => [
-                'start' => now()->startOfWeek(),
-                'end'   => now()->endOfWeek(),
+                'start' => $now->startOfWeek(),
+                'end'   => $now->endOfWeek(),
                 'label' => 'Cette semaine — '
-                    . now()->startOfWeek()->format('d/m')
+                    . $now->startOfWeek()->format('d/m')
                     . ' au '
-                    . now()->endOfWeek()->format('d/m/Y'),
+                    . $now->endOfWeek()->format('d/m/Y'),
             ],
             'year' => [
-                'start' => Carbon::parse($this->year)->startOfYear(),
-                'end'   => Carbon::parse($this->year)->endOfYear(),
+                'start' => CarbonImmutable::parse($this->year)->startOfYear(),
+                'end'   => CarbonImmutable::parse($this->year)->endOfYear(),
                 'label' => 'Année ' . $this->year,
             ],
             default => [ // month
-                'start' => Carbon::parse($this->month)->startOfMonth(),
-                'end'   => Carbon::parse($this->month)->endOfMonth(),
-                'label' => Carbon::parse($this->month)->translatedFormat('F Y'),
+                'start' => CarbonImmutable::parse($this->month)->startOfMonth(),
+                'end'   => CarbonImmutable::parse($this->month)->endOfMonth(),
+                'label' => CarbonImmutable::parse($this->month)->translatedFormat('F Y'),
             ],
         };
     }

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class Sale extends Model
 {
@@ -70,29 +71,20 @@ class Sale extends Model
      */
     public static function generateReference(int $shopId): string
     {
-        $date   = now()->format('Ymd');
-        $prefix = "VNT-{$date}";
+        return DB::transaction(function () use ($shopId) {
+            $date   = now()->format('Ymd');
+            $prefix = "VNT-{$date}";
 
-        // Récupérer la DERNIÈRE référence du shop pour aujourd'hui
-        $lastSale = static::where('shop_id', $shopId)
-            ->where('reference', 'like', $prefix . '%')
-            ->lockForUpdate()
-            ->orderBy('reference', 'desc')
-            ->first();
+            $lastSale = static::where('shop_id', $shopId)
+                ->where('reference', 'like', $prefix . '%')
+                ->lockForUpdate()
+                ->orderBy('reference', 'desc')
+                ->first();
 
-        if (!$lastSale) {
-            // Pas de vente aujourd'hui → on commence à 1
-            return $prefix . '-0001';
-        }
+            $lastNumber = $lastSale ? (int) substr($lastSale->reference, -4) : 0;
 
-        // Extraire le numéro de la dernière référence
-        // Ex: VNT-20260522-0042 → 42
-        $lastNumber = (int) substr($lastSale->reference, -4);
-
-        // Incrémenter
-        $newNumber = $lastNumber + 1;
-
-        return $prefix . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+            return $prefix . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        });
     }
 
     // ─────────────────────────────────────────────

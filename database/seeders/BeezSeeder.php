@@ -21,7 +21,7 @@ class BeeZSeeder extends Seeder
             [
                 'name'     => 'Admin BeeZ',
                 'phone'    => '+2699000000',
-                'email'    => 'admin@BeeZ.com',
+                'email'    => 'admin@beez.km',
                 'password' => Hash::make('password'),
                 'is_admin' => true,
             ]
@@ -40,22 +40,24 @@ class BeeZSeeder extends Seeder
         $ali = User::firstOrCreate(
             ['phone' => '+2699000001'],
             [
-                'name'     => 'Ali Mohamed',
-                'phone'    => '+2699000001',
-                'email'    => 'ali@test.com',
-                'password' => Hash::make('password'),
-                'is_admin' => false,
+                'name'        => 'Ali Mohamed',
+                'phone'       => '+2699000001',
+                'email'       => 'ali@test.com',
+                'password'    => Hash::make('password'),
+                'is_admin'    => false,
+                'is_approved' => true,
             ]
         );
 
         $fatima = User::firstOrCreate(
             ['phone' => '+2699000002'],
             [
-                'name'     => 'Fatima Abdou',
-                'phone'    => '+2699000002',
-                'email'    => 'fatima@test.com',
-                'password' => Hash::make('password'),
-                'is_admin' => false,
+                'name'        => 'Fatima Abdou',
+                'phone'       => '+2699000002',
+                'email'       => 'fatima@test.com',
+                'password'    => Hash::make('password'),
+                'is_admin'    => false,
+                'is_approved' => true,
             ]
         );
 
@@ -95,6 +97,13 @@ class BeeZSeeder extends Seeder
         // ─────────────────────────────────────
         $boutiqueAli->members()->syncWithoutDetaching([$ali->id]);
         $epicerieFatima->members()->syncWithoutDetaching([$fatima->id]);
+
+        if (!$ali->hasRole('owner')) {
+            $ali->assignRole('owner');
+        }
+        if (!$fatima->hasRole('owner')) {
+            $fatima->assignRole('owner');
+        }
 
         $this->command->info('✅ Associations user-shop effectuées');
         $this->command->newLine();

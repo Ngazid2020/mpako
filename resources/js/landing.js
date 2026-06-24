@@ -537,7 +537,7 @@ function initMockupAnimations() {
     }, 1500);
 
     // Compteurs du mockup en boucle
-    setInterval(() => {
+    const statInterval = setInterval(() => {
         anime({
             targets: '.mock-stat',
             scale: [1, 1.1, 1],
@@ -549,8 +549,9 @@ function initMockupAnimations() {
 
     // Notifications qui apparaissent
     const notif = document.querySelector('.mock-notification');
+    let notifInterval = null;
     if (notif) {
-        setInterval(() => {
+        notifInterval = setInterval(() => {
             anime({
                 targets: notif,
                 translateX: [50, 0],
@@ -569,6 +570,11 @@ function initMockupAnimations() {
             });
         }, 5000);
     }
+
+    window.addEventListener('beforeunload', () => {
+        clearInterval(statInterval);
+        if (notifInterval) clearInterval(notifInterval);
+    });
 }
 
 // ═══════════════════════════════════════════════════════════

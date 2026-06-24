@@ -26,6 +26,13 @@ class PurchaseItem extends Model
     // RELATIONS
     // ─────────────────────────────────────────────
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $item) {
+            $item->subtotal = round((float) $item->quantity * (float) $item->unit_cost, 2);
+        });
+    }
+
     public function purchase(): BelongsTo
     {
         return $this->belongsTo(Purchase::class);

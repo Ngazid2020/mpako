@@ -26,6 +26,13 @@ class SaleItem extends Model
     // RELATIONS
     // ─────────────────────────────────────────────
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $item) {
+            $item->subtotal = round((float) $item->quantity * (float) $item->unit_price, 2);
+        });
+    }
+
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);

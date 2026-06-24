@@ -520,37 +520,49 @@ class Caisse extends Page
 
     private function notifyLowStock(mixed $shop, array $cartSnapshot): void
     {
-        $outOfStock = [];
-        $lowStock   = [];
+        try {
+            $productIds = array_column($cartSnapshot, 'product_id');
 
-        foreach ($cartSnapshot as $item) {
-            $product = $shop->products()->with('unit')->find($item['product_id']);
-            if (!$product) continue;
+            $products = $shop->products()
+                ->with('unit')
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
 
-            if ($product->stock_qty <= 0) {
-                $outOfStock[] = $product->name;
-            } elseif ($product->stock_qty <= $product->stock_alert) {
-                $unit = $product->unit?->abbreviation ?? '';
-                $lowStock[] = "{$product->name} (reste {$product->stock_qty} {$unit})";
+            $outOfStock = [];
+            $lowStock   = [];
+
+            foreach ($cartSnapshot as $item) {
+                $product = $products->get($item['product_id']);
+                if (!$product) continue;
+
+                if ($product->stock_qty <= 0) {
+                    $outOfStock[] = $product->name;
+                } elseif ($product->isLowStock()) {
+                    $unit = $product->unit?->abbreviation ?? '';
+                    $lowStock[] = "{$product->name} (reste {$product->stock_qty} {$unit})";
+                }
             }
-        }
 
-        if (!empty($outOfStock)) {
-            Notification::make()
-                ->title('🔴 Rupture de stock !')
-                ->body('À réapprovisionner : ' . implode(', ', $outOfStock))
-                ->danger()
-                ->persistent()
-                ->send();
-        }
+            if (!empty($outOfStock)) {
+                Notification::make()
+                    ->title('🔴 Rupture de stock !')
+                    ->body('À réapprovisionner : ' . implode(', ', $outOfStock))
+                    ->danger()
+                    ->persistent()
+                    ->send();
+            }
 
-        if (!empty($lowStock)) {
-            Notification::make()
-                ->title('🟠 Stock bas')
-                ->body(implode(' · ', $lowStock))
-                ->warning()
-                ->duration(8000)
-                ->send();
+            if (!empty($lowStock)) {
+                Notification::make()
+                    ->title('🟠 Stock bas')
+                    ->body(implode(' · ', $lowStock))
+                    ->warning()
+                    ->duration(8000)
+                    ->send();
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 }

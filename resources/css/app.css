@@ -382,7 +382,8 @@
        MESH GRADIENT CANVAS
        ─────────────────────────────────────────────── */
     #mesh-canvas,
-    #particle-network {
+    #particle-hero,
+    #particle-stats {
         position: absolute;
         inset: 0;
         width: 100%;

@@ -26,30 +26,28 @@ class ExpensesWidget extends Widget
         $shop = Filament::getTenant();
 
         $query = $shop->expenses()
-            ->with('category');
+            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
+            ->selectRaw('expenses.expense_category_id, expense_categories.name as cat_name, expense_categories.color as cat_color, SUM(expenses.amount) as total, COUNT(*) as cnt')
+            ->groupBy('expenses.expense_category_id', 'expense_categories.name', 'expense_categories.color');
 
-        // Filtre période
         $query = match ($this->period) {
-            'today' => $query->whereDate('spent_at', today()),
-            'week'  => $query->whereBetween('spent_at', [
+            'today' => $query->whereDate('expenses.spent_at', today()),
+            'week'  => $query->whereBetween('expenses.spent_at', [
                 now()->startOfWeek(),
                 now()->endOfWeek(),
             ]),
             default => $query
-                ->whereMonth('spent_at', now()->month)
-                ->whereYear('spent_at', now()->year),
+                ->whereMonth('expenses.spent_at', now()->month)
+                ->whereYear('expenses.spent_at', now()->year),
         };
 
         return $query->get()
-            ->groupBy('expense_category_id')
-            ->map(function ($expenses) {
-                return [
-                    'name'   => $expenses->first()->category?->name ?? 'Sans catégorie',
-                    'color'  => $expenses->first()->category?->color ?? '#6366f1',
-                    'total'  => $expenses->sum('amount'),
-                    'count'  => $expenses->count(),
-                ];
-            })
+            ->map(fn ($row) => [
+                'name'  => $row->cat_name  ?? 'Sans catégorie',
+                'color' => $row->cat_color ?? '#6366f1',
+                'total' => (float) $row->total,
+                'count' => (int) $row->cnt,
+            ])
             ->sortByDesc('total')
             ->values();
     }

@@ -35,7 +35,8 @@ class ExpenseCategoryResource extends Resource
 
                         Forms\Components\ColorPicker::make('color')
                             ->label('Couleur')
-                            ->default('#6366f1'),
+                            ->default('#6366f1')
+                            ->rules(['regex:/^#[0-9A-Fa-f]{6}$/']),
 
                         Forms\Components\Select::make('icon')
                             ->label('Icône')

@@ -47,7 +47,7 @@ class CreditPolicy
      */
     public function delete(User $user, Credit $credit): bool
     {
-        return $user->can('delete_credit');
+        return $user->can('delete_credit') && $user->hasRole(['owner', 'manager']);
     }
 
     /**
@@ -55,7 +55,7 @@ class CreditPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_credit');
+        return $user->can('delete_any_credit') && $user->hasRole(['owner', 'manager']);
     }
 
     /**

@@ -125,10 +125,10 @@ class PurchaseObserver
                     'reason'     => "Achat {$purchase->reference}",
                 ]);
 
-                // Mettre à jour le prix d'achat (dernier connu)
-                $item->product->update([
-                    'buy_price' => $item->unit_cost,
-                ]);
+                // Mettre à jour le prix d'achat (dernier connu) — même shop uniquement
+                if ($item->product->shop_id === $purchase->shop_id) {
+                    $item->product->update(['buy_price' => $item->unit_cost]);
+                }
             }
 
             // ── 2. Mettre à jour la balance fournisseur ──

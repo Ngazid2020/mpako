@@ -13,6 +13,7 @@ use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Table;
 
 class CreditResource extends Resource
@@ -39,7 +40,7 @@ class CreditResource extends Resource
                         Forms\Components\Select::make('customer_id')
                             ->label('Client')
                             ->options(
-                                fn () => $shop->customers()
+                                fn() => $shop->customers()
                                     ->where('is_active', true)
                                     ->pluck('name', 'id')
                             )
@@ -117,7 +118,7 @@ class CreditResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold')
-                    ->description(fn (Credit $record) => $record->customer?->phone),
+                    ->description(fn(Credit $record) => $record->customer?->phone),
 
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Montant')
@@ -134,20 +135,21 @@ class CreditResource extends Resource
                     ->money('KMF')
                     ->sortable()
                     ->weight('bold')
-                    ->color(fn (Credit $record): string =>
+                    ->color(
+                        fn(Credit $record): string =>
                         $record->remaining_amount > 0 ? 'danger' : 'success'
                     ),
 
                 // Badge statut
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Statut')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'pending' => '🔴 Non remboursé',
                         'partial' => '🟠 Partiel',
                         'paid'    => '✅ Soldé',
                         default   => $state,
                     })
-                    ->color(fn (string $state): string => match($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'pending' => 'danger',
                         'partial' => 'warning',
                         'paid'    => 'success',
@@ -159,10 +161,12 @@ class CreditResource extends Resource
                     ->label('Échéance')
                     ->date('d/m/Y')
                     ->placeholder('—')
-                    ->color(fn (Credit $record): string =>
+                    ->color(
+                        fn(Credit $record): string =>
                         $record->isOverdue() ? 'danger' : 'gray'
                     )
-                    ->description(fn (Credit $record): ?string =>
+                    ->description(
+                        fn(Credit $record): ?string =>
                         $record->isOverdue() ? '⚠️ En retard' : null
                     ),
 
@@ -188,72 +192,85 @@ class CreditResource extends Resource
 
                 Tables\Filters\Filter::make('overdue')
                     ->label('En retard')
-                    ->query(fn ($query) => $query
-                        ->whereNotNull('due_date')
-                        ->where('due_date', '<', today())
-                        ->where('status', '!=', 'paid')
+                    ->query(
+                        fn($query) => $query
+                            ->whereNotNull('due_date')
+                            ->where('due_date', '<', today())
+                            ->where('status', '!=', 'paid')
                     )
                     ->toggle(),
 
                 Tables\Filters\Filter::make('not_paid')
                     ->label('Non soldés')
-                    ->query(fn ($query) => $query->where('status', '!=', 'paid'))
+                    ->query(fn($query) => $query->where('status', '!=', 'paid'))
                     ->toggle(),
             ])
             ->actions([
+                ActionGroup::make([
+                    // ── Action principale : Enregistrer un remboursement ──
+                    Tables\Actions\Action::make('pay')
+                        ->label('Remboursement')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->visible(fn(Credit $record): bool => $record->status !== 'paid')
+                        ->form(function (Credit $record): array {
+                            return [
+                                Forms\Components\Placeholder::make('info')
+                                    ->label('Restant dû')
+                                    ->content(
+                                        number_format((float) $record->remaining_amount, 0, ',', ' ') . ' KMF'
+                                            . ' (total : ' . number_format((float) $record->total_amount, 0, ',', ' ') . ' KMF'
+                                            . ' · déjà payé : ' . number_format((float) $record->paid_amount, 0, ',', ' ') . ' KMF)'
+                                    ),
 
-                // ── Action principale : Enregistrer un remboursement ──
-                Tables\Actions\Action::make('pay')
-                    ->label('Remboursement')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('success')
-                    ->visible(fn (Credit $record): bool => $record->status !== 'paid')
-                    ->form(function (Credit $record): array { return [
-                        Forms\Components\TextInput::make('amount')
-                            ->label('Montant remboursé (KMF)')
-                            ->numeric()
-                            ->required()
-                            ->minValue(1)
-                            ->maxValue($record->remaining_amount)
-                            ->suffix('KMF'),
+                                Forms\Components\TextInput::make('amount')
+                                    ->label('Montant remboursé (KMF)')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(1)
+                                    ->maxValue($record->remaining_amount)
+                                    ->suffix('KMF'),
 
-                        Forms\Components\DatePicker::make('paid_at')
-                            ->label('Date du remboursement')
-                            ->required()
-                            ->default(today())
-                            ->native(false)
-                            ->displayFormat('d/m/Y'),
+                                Forms\Components\DatePicker::make('paid_at')
+                                    ->label('Date du remboursement')
+                                    ->required()
+                                    ->default(today())
+                                    ->native(false)
+                                    ->displayFormat('d/m/Y'),
 
-                        Forms\Components\TextInput::make('note')
-                            ->label('Note')
-                            ->placeholder('Optionnel...'),
-                    ]; })
-                    ->action(function (Credit $record, array $data): void {
-                        // Vérifier que le montant ne dépasse pas le reste dû
-                        $amount = min(
-                            (float) $data['amount'],
-                            (float) $record->remaining_amount
-                        );
+                                Forms\Components\TextInput::make('note')
+                                    ->label('Note')
+                                    ->placeholder('Optionnel...'),
+                            ];
+                        })
+                        ->action(function (Credit $record, array $data): void {
+                            // Vérifier que le montant ne dépasse pas le reste dû
+                            $amount = min(
+                                (float) $data['amount'],
+                                (float) $record->remaining_amount
+                            );
 
-                        CreditPayment::create([
-                            'credit_id' => $record->id,
-                            'user_id'   => auth()->id(),
-                            'amount'    => $amount,
-                            'paid_at'   => $data['paid_at'],
-                            'note'      => $data['note'] ?? null,
-                        ]);
+                            CreditPayment::create([
+                                'credit_id' => $record->id,
+                                'user_id'   => auth()->id(),
+                                'amount'    => $amount,
+                                'paid_at'   => $data['paid_at'],
+                                'note'      => $data['note'] ?? null,
+                            ]);
 
-                        Notification::make()
-                            ->title('✅ Remboursement enregistré')
-                            ->body(
-                                number_format($amount, 0, ',', ' ') . ' KMF encaissés pour '
-                                . $record->customer->name
-                            )
-                            ->success()
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->title('✅ Remboursement enregistré')
+                                ->body(
+                                    number_format($amount, 0, ',', ' ') . ' KMF encaissés pour '
+                                        . $record->customer->name
+                                )
+                                ->success()
+                                ->send();
+                        }),
 
-                Tables\Actions\ViewAction::make(),
+                    Tables\Actions\ViewAction::make(),
+                ]),
+
             ])
             ->bulkActions([]);
     }
@@ -276,13 +293,13 @@ class CreditResource extends Resource
                         Infolists\Components\TextEntry::make('status')
                             ->label('Statut')
                             ->badge()
-                            ->formatStateUsing(fn ($state) => match($state) {
+                            ->formatStateUsing(fn($state) => match ($state) {
                                 'pending' => '🔴 Non remboursé',
                                 'partial' => '🟠 Partiel',
                                 'paid'    => '✅ Soldé',
                                 default   => $state,
                             })
-                            ->color(fn ($state) => match($state) {
+                            ->color(fn($state) => match ($state) {
                                 'pending' => 'danger',
                                 'partial' => 'warning',
                                 'paid'    => 'success',
@@ -308,7 +325,8 @@ class CreditResource extends Resource
                             ->label('Reste dû')
                             ->money('KMF')
                             ->weight('bold')
-                            ->color(fn (Credit $record) =>
+                            ->color(
+                                fn(Credit $record) =>
                                 $record->remaining_amount > 0 ? 'danger' : 'success'
                             ),
 

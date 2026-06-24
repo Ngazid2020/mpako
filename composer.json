@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "beez/erp",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
     "keywords": ["laravel", "framework"],
@@ -9,7 +9,7 @@
         "php": "^8.2",
         "bacon/bacon-qr-code": "^3.1",
         "bezhansalleh/filament-shield": "^3.9",
-        "filament/filament": "3.3",
+        "filament/filament": "^3.3",
         "laravel-notification-channels/webpush": "^10.5",
         "laravel/framework": "^11.31",
         "laravel/sanctum": "^4.0",
