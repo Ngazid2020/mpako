@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initCustomCursor();
     initMeshGradient();
-    initParticleNetwork();
+    initParticleNetwork('particle-hero');
+    initParticleNetwork('particle-stats');
     initStarryBackground();
     initSplitTextHero();
     initHeroAnimations();
@@ -122,8 +123,8 @@ function initMeshGradient() {
 // 3. PARTICLE NETWORK (Canvas connecté)
 // ═══════════════════════════════════════════════════════════
 
-function initParticleNetwork() {
-    const canvas = document.getElementById('particle-network');
+function initParticleNetwork(canvasId = 'particle-hero') {
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');

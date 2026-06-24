@@ -122,7 +122,7 @@
                     <div class="space-y-3">
                         <div>
                             <input
-                                wire:model.defer="confirmCode"
+                                wire:model="confirmCode"
                                 type="text"
                                 inputmode="numeric"
                                 autocomplete="one-time-code"

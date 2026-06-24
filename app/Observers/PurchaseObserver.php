@@ -172,6 +172,13 @@ class PurchaseObserver
                     'reason'     => "Annulation achat {$purchase->reference}",
                 ]);
             }
+
+            // Remettre les montants à zéro — requête directe pour éviter la boucle observer
+            Purchase::whereKey($purchase->id)->update([
+                'paid_amount'    => 0,
+                'debt_amount'    => 0,
+                'payment_status' => 'unpaid',
+            ]);
         });
     }
 }

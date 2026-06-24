@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Testing\Fluent\Concerns\Has;
 
 class StatsOverviewWidget extends BaseWidget implements HasShieldPermissions
 {
@@ -20,8 +19,7 @@ class StatsOverviewWidget extends BaseWidget implements HasShieldPermissions
         ];
     }
 
-    // Rafraîchissement automatique toutes les 30 secondes
-    protected static ?string $pollingInterval = '30s';
+    protected static ?string $pollingInterval = '60s';
     protected int | string | array $columnSpan = 'full';
     // Ce widget est en haut du dashboard
     protected static ?int $sort = 1;

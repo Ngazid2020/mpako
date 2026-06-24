@@ -43,13 +43,13 @@ class PurchaseSeeder extends Seeder
             return;
         }
 
-        // ── Achat 1 : Validé (stock déjà mis à jour) ──
+        // ── Achat 1 : Validé (déclenche PurchaseObserver via update) ──
         $purchase1 = Purchase::create([
             'shop_id'      => $shop->id,
             'supplier_id'  => $grossiste->id,
             'user_id'      => $user->id,
-            'reference'    => 'ACH-' . now()->format('Ymd') . '-0001',
-            'status'       => 'completed',
+            'reference'    => Purchase::generateReference($shop->id),
+            'status'       => 'pending',
             'total_amount' => 0,
             'paid_amount'  => 0,
             'debt_amount'  => 0,
@@ -82,6 +82,7 @@ class PurchaseSeeder extends Seeder
             'total_amount' => $total1,
             'paid_amount'  => $total1,
             'debt_amount'  => 0,
+            'status'       => 'completed', // Déclenche PurchaseObserver → stock mis à jour
         ]);
 
         // ── Achat 2 : En attente (à valider) ──
@@ -89,7 +90,7 @@ class PurchaseSeeder extends Seeder
             'shop_id'      => $shop->id,
             'supplier_id'  => $importateur->id,
             'user_id'      => $user->id,
-            'reference'    => 'ACH-' . now()->format('Ymd') . '-0002',
+            'reference'    => Purchase::generateReference($shop->id),
             'status'       => 'pending',
             'total_amount' => 0,
             'paid_amount'  => 0,

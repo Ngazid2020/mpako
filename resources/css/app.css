@@ -11,12 +11,12 @@
         scroll-behavior: smooth;
     }
 
-    body {
+    body.landing-page {
         cursor: none;
     }
 
     @media (pointer: coarse) {
-        body {
+        body.landing-page {
             cursor: auto;
         }
     }

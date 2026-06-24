@@ -18,8 +18,9 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'phone'    => ['required', 'string', 'max:30'],
-            'password' => ['required', 'string', 'max:255'],
+            'phone'       => ['required', 'string', 'max:30'],
+            'password'    => ['required', 'string', 'max:255'],
+            'device_name' => ['sometimes', 'string', 'max:100'],
         ]);
 
         $user = User::where('phone', $request->phone)->first();
@@ -41,8 +42,13 @@ class AuthController extends Controller
 
         $user->load('shops');
 
+        $deviceName = $request->input('device_name', 'mobile-app');
+
+        // Remplacer le token existant pour ce device (un token par appareil)
+        $user->tokens()->where('name', $deviceName)->delete();
+
         $token = $user->createToken(
-            name: 'mobile-app',
+            name: $deviceName,
             expiresAt: now()->addDays(30)
         )->plainTextToken;
 

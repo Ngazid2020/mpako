@@ -114,7 +114,7 @@ class Credit extends Model
     public function isOverdue(): bool
     {
         return $this->due_date !== null
-            && $this->due_date->isPast()
+            && now()->startOfDay()->gt($this->due_date->copy()->endOfDay())
             && $this->status !== 'paid';
     }
 }

@@ -8,7 +8,6 @@ use Filament\Pages\Page;
 use Filament\Facades\Filament;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Testing\Fluent\Concerns\Has;
 
 class Benefice extends Page
 {

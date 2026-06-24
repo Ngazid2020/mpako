@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Shop extends Model
 {
@@ -66,9 +67,9 @@ class Shop extends Model
         return $this->hasMany(Sale::class);
     }
 
-    public function saleItems(): HasMany
+    public function saleItems(): HasManyThrough
     {
-        return $this->hasMany(SaleItem::class);
+        return $this->hasManyThrough(SaleItem::class, Sale::class);
     }
 
 

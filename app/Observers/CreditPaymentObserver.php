@@ -16,8 +16,11 @@ class CreditPaymentObserver
     {
         $credit = $payment->credit;
 
+        // Borner au montant réellement dû (défense contre overpayment)
+        $effective = min((float) $payment->amount, (float) $credit->remaining_amount);
+
         // ── Mettre à jour les montants du crédit ──
-        $newPaidAmount      = (float) $credit->paid_amount + (float) $payment->amount;
+        $newPaidAmount      = (float) $credit->paid_amount + $effective;
         $newRemainingAmount = max(0, (float) $credit->total_amount - $newPaidAmount);
 
         // ── Déterminer le nouveau statut ──
@@ -33,8 +36,8 @@ class CreditPaymentObserver
             'status'           => $newStatus,
         ]);
 
-        // ── Réduire la balance du client ──
-        $credit->customer->decrement('balance', $payment->amount);
+        // ── Réduire la balance du client (montant effectif uniquement) ──
+        $credit->customer->decrement('balance', $effective);
     }
 
     /**

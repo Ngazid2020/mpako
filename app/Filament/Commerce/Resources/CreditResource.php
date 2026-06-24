@@ -208,12 +208,13 @@ class CreditResource extends Resource
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
                     ->visible(fn (Credit $record): bool => $record->status !== 'paid')
-                    ->form([
+                    ->form(function (Credit $record): array { return [
                         Forms\Components\TextInput::make('amount')
                             ->label('Montant remboursé (KMF)')
                             ->numeric()
                             ->required()
                             ->minValue(1)
+                            ->maxValue($record->remaining_amount)
                             ->suffix('KMF'),
 
                         Forms\Components\DatePicker::make('paid_at')
@@ -226,7 +227,7 @@ class CreditResource extends Resource
                         Forms\Components\TextInput::make('note')
                             ->label('Note')
                             ->placeholder('Optionnel...'),
-                    ])
+                    ]; })
                     ->action(function (Credit $record, array $data): void {
                         // Vérifier que le montant ne dépasse pas le reste dû
                         $amount = min(

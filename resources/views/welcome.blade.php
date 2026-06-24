@@ -98,14 +98,6 @@
                     "@id": "{{ url('/') }}/#organization"
                 },
                 "inLanguage": "fr",
-                "potentialAction": {
-                    "@type": "SearchAction",
-                    "target": {
-                        "@type": "EntryPoint",
-                        "urlTemplate": "{{ url('/') }}?q={search_term_string}"
-                    },
-                    "query-input": "required name=search_term_string"
-                }
             }
         ]
     }
@@ -117,7 +109,7 @@
     @vite(['resources/css/app.css', 'resources/js/landing.js'])
 </head>
 
-<body class="font-sans antialiased bg-white text-gray-900 overflow-x-hidden">
+<body class="landing-page font-sans antialiased bg-white text-gray-900 overflow-x-hidden">
 
     {{-- ═══════════════════════════════════════════ --}}
     {{-- SCROLL PROGRESS                              --}}
@@ -132,7 +124,7 @@
     <header class="fixed top-1 left-0 right-0 z-50 glass">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
 
-            <a href="#" class="flex items-center group magnetic">
+            <a href="{{ url('/') }}" class="flex items-center group magnetic">
                 <img src="/images/logo-filament-beez.png" alt="BeeZ" class="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
             </a>
 
@@ -186,7 +178,7 @@
         <div class="starry-bg absolute inset-0 pointer-events-none"></div>
 
         {{-- Particles network --}}
-        <canvas id="particle-network" class="opacity-30"></canvas>
+        <canvas id="particle-hero" class="opacity-30"></canvas>
 
         <div class="relative max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center z-10">
 
@@ -344,7 +336,7 @@
     {{-- ═══════════════════════════════════════════ --}}
     <section id="stats" class="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-900 via-blue-950 to-cyan-950 relative overflow-hidden noise">
 
-        <canvas id="particle-network" class="absolute inset-0 opacity-50"></canvas>
+        <canvas id="particle-stats" class="absolute inset-0 opacity-50"></canvas>
 
         <div class="relative max-w-6xl mx-auto z-10">
             <div class="text-center mb-16 reveal">

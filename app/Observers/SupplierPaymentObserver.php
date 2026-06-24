@@ -16,8 +16,11 @@ class SupplierPaymentObserver
     {
         $purchase = $payment->purchase;
 
+        // Borner au montant réellement dû (défense contre overpayment)
+        $effective = min((float) $payment->amount, (float) $purchase->debt_amount);
+
         // ── Calculer les nouveaux montants ──
-        $newPaidAmount = (float) $purchase->paid_amount + (float) $payment->amount;
+        $newPaidAmount = (float) $purchase->paid_amount + $effective;
         $newDebtAmount = max(0, (float) $purchase->total_amount - $newPaidAmount);
 
         // ── Déterminer le nouveau payment_status ──
@@ -34,8 +37,8 @@ class SupplierPaymentObserver
             'payment_status' => $newPaymentStatus,
         ]);
 
-        // ── Réduire la balance du fournisseur ──
-        $payment->supplier->decrement('balance', $payment->amount);
+        // ── Réduire la balance du fournisseur (montant effectif uniquement) ──
+        $payment->supplier->decrement('balance', $effective);
     }
 
     /**

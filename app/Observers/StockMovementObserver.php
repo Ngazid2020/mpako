@@ -20,7 +20,8 @@ class StockMovementObserver
         $stockAfter = match($movement->type) {
             'in'         => $stockBefore + (float) $movement->quantity,
             'out'        => $stockBefore - (float) $movement->quantity,
-            'adjustment' => (float) $movement->quantity, // La quantité = nouveau stock réel
+            'adjustment' => (float) $movement->quantity,
+            default      => throw new \InvalidArgumentException("Type de mouvement invalide : {$movement->type}"),
         };
 
         $movement->stock_after = max(0, $stockAfter); // Jamais négatif

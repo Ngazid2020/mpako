@@ -48,30 +48,28 @@ class SalesChartWidget extends ChartWidget
             default  => 7,
         };
 
-        // Construire les données jour par jour
+        // Une seule requête groupée par jour
+        $from     = now()->subDays($days - 1)->startOfDay();
+        $salesMap = $shop->sales()
+            ->where('status', 'completed')
+            ->where('created_at', '>=', $from)
+            ->selectRaw('DATE(created_at) as day, SUM(total_amount) as total, COUNT(*) as cnt')
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
+
         $labels  = [];
         $amounts = [];
         $counts  = [];
 
         for ($i = $days - 1; $i >= 0; $i--) {
-            $date = now()->subDays($i);
+            $date   = now()->subDays($i);
+            $dayKey = $date->format('Y-m-d');
+            $row    = $salesMap->get($dayKey);
 
-            // Label de la date
-            $labels[] = $days <= 7
-                ? $date->translatedFormat('D d/m')  // Ex: "Lun 13/05"
-                : $date->format('d/m');              // Format court pour 30j+
-
-            // CA de ce jour
-            $amounts[] = (float) $shop->sales()
-                ->whereDate('created_at', $date)
-                ->where('status', 'completed')
-                ->sum('total_amount');
-
-            // Nombre de ventes de ce jour
-            $counts[] = $shop->sales()
-                ->whereDate('created_at', $date)
-                ->where('status', 'completed')
-                ->count();
+            $labels[]  = $days <= 7 ? $date->translatedFormat('D d/m') : $date->format('d/m');
+            $amounts[] = $row ? (float) $row->total : 0;
+            $counts[]  = $row ? (int) $row->cnt : 0;
         }
 
         return [

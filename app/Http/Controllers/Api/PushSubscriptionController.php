@@ -28,6 +28,8 @@ class PushSubscriptionController extends Controller
 
     public function destroy(Request $request): JsonResponse
     {
+        $request->validate(['endpoint' => 'required|url']);
+
         $request->user()->deletePushSubscription($request->endpoint);
 
         return response()->json(['status' => 'unsubscribed']);
