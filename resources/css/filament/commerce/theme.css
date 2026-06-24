@@ -1,3 +1,126 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 
 @config 'tailwind.config.js';
+
+/* =====================================================
+   BeeZ Commerce — Sidebar Dark Teal
+   Palette : #0a4848 (bg) · #073838 (header) · #e8d000 (actif)
+   ===================================================== */
+
+/* Sidebar — barre jaune au tout dessus */
+.fi-sidebar {
+    background-color: #0a4848 !important;
+    /* border-top: 3px solid #e8d000 !important; */
+}
+
+/* Header (logo + tenant) — fond blanc + ombre jaune vers le bas */
+.fi-sidebar-header {
+    background-color: #fff !important;
+    box-shadow:
+        0 8px 28px rgba(232, 208, 0, 0.22),
+        inset 0 -20px 28px rgba(232, 208, 0, 0.07) !important;
+    border-bottom: 1px solid rgba(232, 208, 0, 0.18) !important;
+}
+
+/* Tenant name — teal foncé, lisible sur fond blanc */
+.fi-tenant-menu-trigger-button {
+    color: #6d129e !important;
+}
+.fi-tenant-menu-trigger-button:hover {
+    background-color: rgba(214, 222, 222, 0.07) !important;
+    color: #0a4848 !important;
+}
+
+/* Topbar droit — même ombre jaune que le sidebar-header */
+.fi-topbar nav {
+    box-shadow:
+        0 8px 8px rgba(232, 208, 0, 0.32),
+        inset 0 -20px 28px rgba(232, 208, 0, 0.07) !important;
+    border-bottom: 1px solid rgba(232, 208, 0, 0.18) !important;
+}
+
+/* Nav — gradient jaune en haut, s'estompe dans le teal */
+.fi-sidebar-nav {
+    background: linear-gradient(to bottom, rgba(232, 208, 0, 0.07) 0%, transparent 72px) !important;
+}
+
+/* Labels de groupe — override text-gray-500 */
+.fi-sidebar-group-label {
+    color: rgba(232, 244, 244, 0.42) !important;
+}
+
+/* Icône de groupe — override text-gray-400 */
+.fi-sidebar-group-icon {
+    color: rgba(255, 255, 255, 0.36) !important;
+}
+
+/* Label item par défaut — override text-gray-700 dark:text-gray-200 */
+.fi-sidebar-item-label {
+    color: rgba(232, 244, 244, 0.75) !important;
+}
+
+/* Icône item par défaut — override text-gray-400 dark:text-gray-500 */
+.fi-sidebar-item-icon {
+    color: rgba(255, 255, 255, 0.40) !important;
+}
+
+/* Hover sur item — override hover:bg-gray-100 dark:hover:bg-white/5 */
+.fi-sidebar-item-button:hover,
+.fi-sidebar-item-button:focus-visible {
+    background-color: rgba(255, 255, 255, 0.07) !important;
+}
+.fi-sidebar-item-button:hover .fi-sidebar-item-label,
+.fi-sidebar-item-button:focus-visible .fi-sidebar-item-label {
+    color: #ffffff !important;
+}
+.fi-sidebar-item-button:hover .fi-sidebar-item-icon,
+.fi-sidebar-item-button:focus-visible .fi-sidebar-item-icon {
+    color: rgba(255, 255, 255, 0.80) !important;
+}
+
+/* Item actif — fond jaune + barre gauche · override bg-gray-100 dark:bg-white/5 */
+.fi-sidebar-item.fi-active .fi-sidebar-item-button {
+    background-color: rgba(232, 208, 0, 0.14) !important;
+    box-shadow: inset 3px 0 0 #e8d000 !important;
+}
+
+/* Label item actif — override text-primary-600 */
+.fi-sidebar-item.fi-active .fi-sidebar-item-label {
+    color: #e8d000 !important;
+}
+
+/* Icône item actif — override text-primary-600 */
+.fi-sidebar-item.fi-active .fi-sidebar-item-icon {
+    color: #e8d000 !important;
+}
+
+/* Point actif des sous-items — override bg-primary-600 */
+.fi-sidebar-item.fi-active .fi-sidebar-item-grouped-border .relative.h-1\.5 {
+    background-color: #e8d000 !important;
+}
+
+/* Connecteurs verticaux des sous-items */
+.fi-sidebar-item-grouped-border .absolute {
+    background-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Tenant menu trigger */
+.fi-tenant-menu-trigger-button {
+    color: rgba(193, 20, 20, 0.85) !important;
+}
+.fi-tenant-menu-trigger-button:hover {
+    background-color: rgba(255, 255, 255, 0.09) !important;
+    color: #ffffff !important;
+}
+
+/* Scrollbar fine */
+.fi-sidebar-nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.fi-sidebar-nav::-webkit-scrollbar { width: 3px; }
+.fi-sidebar-nav::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+.fi-sidebar-nav::-webkit-scrollbar-track { background: transparent; }

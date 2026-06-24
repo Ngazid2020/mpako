@@ -22,10 +22,13 @@ class ReportPdfController extends Controller
         }
 
         [$view, $data, $filename] = match ($type) {
-            'stock'   => $this->stockReport($shop),
-            'ventes'  => $this->salesReport($shop, $request),
-            'credits' => $this->creditsReport($shop),
-            default   => abort(404),
+            'stock'               => $this->stockReport($shop),
+            'ventes'              => $this->salesReport($shop, $request),
+            'credits'             => $this->creditsReport($shop),
+            'profit'              => $this->profitReport($shop, $request),
+            'dettes-fournisseurs' => $this->supplierDebtsReport($shop),
+            'top-produits'        => $this->topProductsReport($shop, $request),
+            default               => abort(404),
         };
 
         $pdf = Pdf::loadView($view, $data)->setPaper('a4', 'portrait');
@@ -182,6 +185,177 @@ class ReportPdfController extends Controller
             'pdf.reports.credits',
             compact('shop', 'credits', 'totalDue', 'debtors', 'overdueCount', 'chartImg'),
             "credits-{$shop->slug}-" . now()->format('Y-m-d') . '.pdf',
+        ];
+    }
+
+    // ═══════════════════════════════════════════════
+    // RAPPORT RÉSULTAT NET
+    // ═══════════════════════════════════════════════
+
+    private function profitReport(Shop $shop, Request $request): array
+    {
+        $period = $request->get('period', 'month');
+        $month  = $request->get('month', now()->format('Y-m'));
+        $year   = $request->get('year', now()->format('Y'));
+
+        [$start, $end, $label] = $this->resolvePeriod($period, $month, $year);
+
+        $revenue = (float) \App\Models\Sale::where('shop_id', $shop->id)
+            ->where('status', 'completed')
+            ->whereBetween('created_at', [$start->startOfDay(), $end->endOfDay()])
+            ->sum('total_amount');
+
+        $purchaseCost = (float) \App\Models\Purchase::where('shop_id', $shop->id)
+            ->where('status', 'completed')
+            ->whereBetween('purchased_at', [$start, $end])
+            ->sum('total_amount');
+
+        $expenses = (float) \App\Models\Expense::where('shop_id', $shop->id)
+            ->whereBetween('spent_at', [$start, $end])
+            ->sum('amount');
+
+        $expenses_list = \App\Models\Expense::where('shop_id', $shop->id)
+            ->whereBetween('spent_at', [$start, $end])
+            ->with('category')
+            ->orderBy('spent_at', 'desc')
+            ->get();
+
+        $grossProfit = $revenue - $purchaseCost;
+        $netProfit   = $grossProfit - $expenses;
+        $margin      = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 1) : 0;
+
+        $chartImg = $this->quickChart([
+            'type' => 'bar',
+            'data' => [
+                'labels'   => ["Chiffre d'affaires", 'Cout achats', 'Depenses', 'Resultat net'],
+                'datasets' => [[
+                    'data'            => [round($revenue), round($purchaseCost), round($expenses), round(max(0, $netProfit))],
+                    'backgroundColor' => [
+                        'rgba(16, 185, 129, 0.85)',
+                        'rgba(239, 68, 68, 0.85)',
+                        'rgba(245, 158, 11, 0.85)',
+                        'rgba(59, 130, 246, 0.85)',
+                    ],
+                    'borderRadius' => 4,
+                ]],
+            ],
+            'options' => $this->barOptions('Montant (KMF)', ''),
+        ]);
+
+        return [
+            'pdf.reports.profit',
+            compact('shop', 'label', 'revenue', 'purchaseCost', 'expenses', 'expenses_list', 'grossProfit', 'netProfit', 'margin', 'chartImg'),
+            "resultat-{$shop->slug}-" . now()->format('Y-m-d') . '.pdf',
+        ];
+    }
+
+    // ═══════════════════════════════════════════════
+    // RAPPORT DETTES FOURNISSEURS
+    // ═══════════════════════════════════════════════
+
+    private function supplierDebtsReport(Shop $shop): array
+    {
+        $purchases = \App\Models\Purchase::where('shop_id', $shop->id)
+            ->where('status', 'completed')
+            ->whereIn('payment_status', ['unpaid', 'partial'])
+            ->with('supplier')
+            ->orderByDesc('debt_amount')
+            ->get();
+
+        $row = \App\Models\Purchase::where('shop_id', $shop->id)
+            ->where('status', 'completed')
+            ->whereIn('payment_status', ['unpaid', 'partial'])
+            ->selectRaw('SUM(debt_amount) as total_debt, COUNT(DISTINCT supplier_id) as supplier_count, COUNT(*) as purchase_count')
+            ->first();
+
+        $totalDebt     = (float) ($row->total_debt ?? 0);
+        $supplierCount = (int)   ($row->supplier_count ?? 0);
+        $purchaseCount = (int)   ($row->purchase_count ?? 0);
+
+        $topItems = $purchases->groupBy('supplier_id')
+            ->map(fn ($rows) => [
+                'label' => $rows->first()->supplier?->name ?? 'Inconnu',
+                'value' => round((float) $rows->sum('debt_amount')),
+            ])
+            ->sortByDesc('value')
+            ->take(10)
+            ->values();
+
+        $chartImg = $this->quickChart([
+            'type' => 'bar',
+            'data' => [
+                'labels'   => $topItems->pluck('label')->toArray(),
+                'datasets' => [[
+                    'label'           => 'Restant du (KMF)',
+                    'data'            => $topItems->pluck('value')->toArray(),
+                    'backgroundColor' => 'rgba(245, 158, 11, 0.85)',
+                    'borderColor'     => 'rgb(180, 83, 9)',
+                    'borderRadius'    => 4,
+                ]],
+            ],
+            'options' => $this->barOptions('Montant du (KMF)', 'Fournisseur'),
+        ]);
+
+        return [
+            'pdf.reports.supplier-debts',
+            compact('shop', 'purchases', 'totalDebt', 'supplierCount', 'purchaseCount', 'chartImg'),
+            "dettes-fournisseurs-{$shop->slug}-" . now()->format('Y-m-d') . '.pdf',
+        ];
+    }
+
+    // ═══════════════════════════════════════════════
+    // RAPPORT TOP PRODUITS
+    // ═══════════════════════════════════════════════
+
+    private function topProductsReport(Shop $shop, Request $request): array
+    {
+        $period = $request->get('period', 'month');
+        $month  = $request->get('month', now()->format('Y-m'));
+        $year   = $request->get('year', now()->format('Y'));
+
+        [$start, $end, $label] = $this->resolvePeriod($period, $month, $year);
+
+        $rows = \Illuminate\Support\Facades\DB::table('sale_items as si')
+            ->join('sales as s',    's.id', '=', 'si.sale_id')
+            ->join('products as p', 'p.id', '=', 'si.product_id')
+            ->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
+            ->leftJoin('units as u',      'u.id', '=', 'p.unit_id')
+            ->where('s.shop_id', $shop->id)
+            ->where('s.status', 'completed')
+            ->whereBetween('s.created_at', [$start->startOfDay(), $end->endOfDay()])
+            ->groupBy('si.product_id', 'p.name', 'c.name', 'u.abbreviation', 'p.buy_price', 'p.sell_price')
+            ->selectRaw('p.name AS product_name, c.name AS category_name, u.abbreviation AS unit, p.buy_price,
+                SUM(si.quantity) AS qty_sold, SUM(si.subtotal) AS revenue,
+                SUM(si.subtotal - si.quantity * p.buy_price) AS profit')
+            ->orderByDesc('revenue')
+            ->limit(50)
+            ->get();
+
+        $top          = $rows->first();
+        $productCount = $rows->count();
+        $totalRevenue = (float) $rows->sum('revenue');
+        $topProduct   = $top?->product_name ?? '—';
+
+        $top10    = $rows->take(10);
+        $chartImg = $this->quickChart([
+            'type' => 'bar',
+            'data' => [
+                'labels'   => $top10->pluck('product_name')->toArray(),
+                'datasets' => [[
+                    'label'           => 'CA (KMF)',
+                    'data'            => $top10->pluck('revenue')->map(fn ($v) => round((float) $v))->toArray(),
+                    'backgroundColor' => 'rgba(139, 92, 246, 0.85)',
+                    'borderColor'     => 'rgb(109, 40, 217)',
+                    'borderRadius'    => 4,
+                ]],
+            ],
+            'options' => $this->barOptions('CA (KMF)', 'Produit'),
+        ]);
+
+        return [
+            'pdf.reports.top-products',
+            compact('shop', 'label', 'rows', 'productCount', 'totalRevenue', 'topProduct', 'chartImg'),
+            "top-produits-{$shop->slug}-" . now()->format('Y-m-d') . '.pdf',
         ];
     }
 

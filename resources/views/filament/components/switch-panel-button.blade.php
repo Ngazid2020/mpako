@@ -1,28 +1,29 @@
 @php
-    $user = auth()->user();
-    $currentPanel = filament()->getCurrentPanel()->getId();
+    $user         = auth()->user();
+    $isAdminPanel = str_starts_with(request()->path(), 'admin');
 @endphp
 
-@if($user && $user->is_admin && $currentPanel === 'admin')
+@if($user && $user->is_admin && $isAdminPanel)
     {{-- On est dans Admin → bouton vers Commerce --}}
     @if($user->shops()->exists())
-        <a 
+        <a
             href="{{ url('/commerce') }}"
-            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200"
+            style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:6px 12px;font-size:0.875rem;font-weight:500;color:#fff;background:#2563eb;text-decoration:none;"
             title="Aller au panel Commerce"
         >
-            <x-heroicon-o-building-storefront class="h-5 w-5" />
-            <span class="hidden sm:inline">Commerce</span>
+            <x-heroicon-o-building-storefront style="width:20px;height:20px;flex-shrink:0;" />
+            <span>Commerce</span>
         </a>
     @endif
-@elseif($user && $user->is_admin && $currentPanel === 'commerce')
+
+@elseif($user && $user->is_admin && !$isAdminPanel)
     {{-- On est dans Commerce → bouton vers Admin --}}
-    <a 
+    <a
         href="{{ url('/admin') }}"
-        class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors duration-200"
+        style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:6px 12px;font-size:0.875rem;font-weight:500;color:#fff;background:#059669;text-decoration:none;"
         title="Retour au panel Admin"
     >
-        <x-heroicon-o-shield-check class="h-5 w-5" />
-        <span class="hidden sm:inline">Admin</span>
+        <x-heroicon-o-shield-check style="width:20px;height:20px;flex-shrink:0;" />
+        <span>Admin</span>
     </a>
 @endif

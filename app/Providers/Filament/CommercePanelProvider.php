@@ -37,7 +37,7 @@ class CommercePanelProvider extends PanelProvider
 
             // Couleurs — Bleu pour le commerce (confiance, sérieux)
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => Color::hex('#0e6464'),
             ])
 
             // Logo et favicon
