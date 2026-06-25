@@ -180,3 +180,35 @@ nav.beez-mobile-nav svg path,
 nav.beez-mobile-nav svg circle {
     fill: currentColor !important;
 }
+
+/* ── Animations ── */
+nav.beez-mobile-nav a {
+    transition: opacity 0.15s ease !important;
+}
+nav.beez-mobile-nav a:active {
+    opacity: 0.5 !important;
+    transform: scale(0.90) !important;
+}
+nav.beez-mobile-nav a svg,
+nav.beez-mobile-nav span.nav-label {
+    transition: color 0.18s ease !important;
+}
+nav.beez-mobile-nav .boutique-circle {
+    transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.15s ease !important;
+}
+nav.beez-mobile-nav a:active .boutique-circle {
+    transform: scale(0.88) !important;
+}
+
+@keyframes beez-icon-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.28) translateY(-3px); }
+    70%  { transform: scale(0.93); }
+    100% { transform: scale(1) translateY(0); }
+}
+nav.beez-mobile-nav a.active-tab svg {
+    animation: beez-icon-pop 0.40s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+}
+nav.beez-mobile-nav a.active-tab .boutique-circle {
+    animation: beez-icon-pop 0.40s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+}
