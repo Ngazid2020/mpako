@@ -18,7 +18,7 @@
 <nav class="beez-mobile-nav lg:hidden fixed bottom-0 inset-x-0 z-[9998]"
      style="padding-bottom:env(safe-area-inset-bottom,0px)">
 
-    <div class="flex h-[68px]">
+    <div class="flex h-[110px]">
 
         {{-- Accueil --}}
         <a href="{{ url($base) }}" class="{{ $tab }} {{ $isDash ? 'active-tab' : '' }}"
