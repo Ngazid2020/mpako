@@ -126,3 +126,57 @@
     border-radius: 2px;
 }
 .fi-sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+
+/* ─────────────────────────────────────────
+   Bottom nav mobile BeeZ
+   ───────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .fi-main-ctn {
+        padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
+}
+
+nav.beez-mobile-nav {
+    background-color: #ffffff !important;
+    border-radius: 20px 20px 0 0 !important;
+    overflow: visible !important;
+    box-shadow: 0 -1px 0 rgba(10,72,72,0.08), 0 -8px 32px rgba(10,72,72,0.12) !important;
+}
+nav.beez-mobile-nav a {
+    text-decoration: none !important;
+}
+/* Icônes — inactif teal, actif jaune */
+nav.beez-mobile-nav a svg {
+    color: #0a4848 !important;
+}
+nav.beez-mobile-nav a.active-tab svg {
+    color: #e8d000 !important;
+}
+/* Labels — inactif teal, actif jaune gras */
+nav.beez-mobile-nav span.nav-label {
+    color: #0a4848 !important;
+    font-weight: 00 !important;
+}
+nav.beez-mobile-nav a.active-tab span.nav-label {
+    color: #e8d000 !important;
+    font-weight: 700 !important;
+}
+/* Boutique — cercle élevé */
+nav.beez-mobile-nav .boutique-circle {
+    background-color: #0a4848 !important;
+    box-shadow: 0 4px 16px rgba(10,72,72,0.28) !important;
+}
+nav.beez-mobile-nav .boutique-circle svg {
+    color: #ffffff !important;
+}
+nav.beez-mobile-nav a.active-tab .boutique-circle {
+    background-color: #e8d000 !important;
+    box-shadow: 0 4px 16px rgba(232,208,0,0.45) !important;
+}
+nav.beez-mobile-nav a.active-tab .boutique-circle svg {
+    color: #0a4848 !important;
+}
+nav.beez-mobile-nav svg path,
+nav.beez-mobile-nav svg circle {
+    fill: currentColor !important;
+}

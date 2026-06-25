@@ -17,6 +17,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
@@ -98,6 +99,10 @@ class CommercePanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn(): string => '<div x-data @open-print-window.window="window.open($event.detail.url, \'_blank\')"></div>'
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => Auth::check() ? Blade::render('@include("filament.components.mobile-bottom-nav")') : ''
             )
         ;
     }
