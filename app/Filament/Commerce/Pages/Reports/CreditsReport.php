@@ -57,7 +57,7 @@ class CreditsReport extends Page implements HasTable
                     ->label('Échéance')
                     ->date('d/m/Y')
                     ->sortable()
-                    ->default('—')
+                    ->placeholder('—')
                     ->color(fn ($record) => $record->isOverdue() ? 'danger' : null),
 
                 Tables\Columns\TextColumn::make('total_amount')

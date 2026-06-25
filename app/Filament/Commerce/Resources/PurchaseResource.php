@@ -483,7 +483,7 @@ class PurchaseResource extends Resource
                     ->label('Référence')
                     ->searchable()
                     ->weight('bold')
-                    ->sortable()
+                    // ->sortable()
                     ->copyable(),
 
                 Tables\Columns\TextColumn::make('supplier.name')
@@ -537,7 +537,8 @@ class PurchaseResource extends Resource
                         'partial' => 'warning',
                         'paid'    => 'success',
                         default   => 'gray',
-                    }),
+                    })
+                    ->sortable(),
 
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Statut')
