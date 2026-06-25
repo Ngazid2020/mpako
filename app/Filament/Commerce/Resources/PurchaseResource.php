@@ -165,7 +165,7 @@ class PurchaseResource extends Resource
                                             $set('unit_cost', $product->buy_price);
                                         }
                                     })
-                                    ->columnSpan(4),
+                                    ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 4]),
 
                                 // Toggle achat en lot (non sauvegardé — UI only)
                                 Forms\Components\Toggle::make('is_bulk')
@@ -180,7 +180,7 @@ class PurchaseResource extends Resource
                                             $set('conversion_qty', 1);
                                         }
                                     })
-                                    ->columnSpan(1),
+                                    ->columnSpan(['default' => 1, 'sm' => 1, 'lg' => 1]),
 
                                 // Quantité
                                 Forms\Components\TextInput::make('quantity')
@@ -194,9 +194,10 @@ class PurchaseResource extends Resource
                                         $set('subtotal', (float) $state * (float) $get('unit_cost'));
                                         self::updateParentTotals($livewire);
                                     })
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 1, 'sm' => 1, 'lg' => 2]),
 
                                 // Nombre d'unités de détail par colis (visible en mode lot uniquement)
+                                // Pleine largeur en sm pour éviter le décalage de grille
                                 Forms\Components\TextInput::make('conversion_qty')
                                     ->label('Unités/colis')
                                     ->numeric()
@@ -205,7 +206,7 @@ class PurchaseResource extends Resource
                                     ->live(debounce: 500)
                                     ->helperText('Ex: 12 bouteilles/carton')
                                     ->visible(fn(Get $get) => (bool) $get('is_bulk'))
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 2]),
 
                                 // Coût unitaire
                                 Forms\Components\TextInput::make('unit_cost')
@@ -220,7 +221,7 @@ class PurchaseResource extends Resource
                                         $set('subtotal', (float) $get('quantity') * (float) $state);
                                         self::updateParentTotals($livewire);
                                     })
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 1, 'sm' => 1, 'lg' => 2]),
 
                                 // Sous-total achat
                                 Forms\Components\TextInput::make('subtotal')
@@ -229,7 +230,7 @@ class PurchaseResource extends Resource
                                     ->disabled()
                                     ->dehydrated(true)
                                     ->suffix('KMF')
-                                    ->columnSpan(1),
+                                    ->columnSpan(['default' => 1, 'sm' => 1, 'lg' => 1]),
 
                                 // Bénéfice estimé sur cette ligne (tient compte de la conversion)
                                 Forms\Components\Placeholder::make('profit_line')
@@ -269,12 +270,16 @@ class PurchaseResource extends Resource
                                                 "<div class='text-xs text-gray-500'>{$sign}" . round($marginPct, 1) . "% · PV " . number_format($sellPrice, 0, ',', ' ') . " KMF</div>"
                                         );
                                     })
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 2]),
 
                                 // Champ caché
                                 Forms\Components\Hidden::make('product_name'),
                             ])
-                            ->columns(14)
+                            ->columns([
+                                'default' => 1,  // mobile : empilement
+                                'sm'      => 2,  // petit écran : 2 colonnes
+                                'lg'      => 14, // desktop : layout complet
+                            ])
                             ->addActionLabel('+ Ajouter un produit')
                             ->reorderable(false)
                             ->live()
