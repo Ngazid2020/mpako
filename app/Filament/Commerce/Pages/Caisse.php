@@ -21,8 +21,8 @@ class Caisse extends Page
 {
     use HasShieldPermissionPages;
     protected static ?string $navigationIcon  = 'heroicon-o-shopping-cart';
-    protected static ?string $navigationLabel = 'Caisse';
-    protected static ?string $title           = '💰 Caisse';
+    protected static ?string $navigationLabel = 'Boutique';
+    protected static ?string $title           = '💰 Boutique';
     protected static ?int    $navigationSort  = 1;
     // Pas de groupe → en haut de la navigation
     protected static ?string $navigationGroup = null;
