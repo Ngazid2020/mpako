@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /commerce/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://shop.azzhy.com/sitemap.xml
