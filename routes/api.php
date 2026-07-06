@@ -49,7 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('push', [SyncController::class, 'push']);
 
             // Produits
-            Route::get('products', [ProductController::class, 'index']);
+            Route::get('products',  [ProductController::class, 'index']);
+            Route::post('products', [ProductController::class, 'store']);
 
             // Clients
             Route::get('customers',                      [CustomerController::class, 'index']);
