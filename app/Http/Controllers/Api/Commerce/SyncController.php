@@ -267,6 +267,25 @@ class SyncController extends Controller
             ]);
         }
 
+        // Vente à crédit — créer le Credit et mettre à jour la balance client
+        if (($p['payment_type'] ?? 'cash') === 'credit' && !empty($p['customer_id'])) {
+            Credit::create([
+                'shop_id'          => $shop->id,
+                'sale_id'          => $sale->id,
+                'customer_id'      => $p['customer_id'],
+                'user_id'          => $user->id,
+                'reference'        => Credit::generateReference($shop->id),
+                'status'           => 'pending',
+                'total_amount'     => $p['total_amount'],
+                'paid_amount'      => 0,
+                'remaining_amount' => $p['total_amount'],
+                'due_date'         => $p['credit']['due_date'] ?? null,
+                'description'      => "Vente à crédit {$sale->reference} (sync offline)",
+                'note'             => $p['credit']['note'] ?? null,
+            ]);
+            // CreditObserver met à jour customer.balance automatiquement
+        }
+
         return ['id' => $sale->id, 'reference' => $sale->reference];
     }
 
@@ -376,7 +395,7 @@ class SyncController extends Controller
             'spent_at'            => $p['spent_at'] ?? now()->toDateString(),
         ]);
 
-        return ['synced' => true, 'data' => ['id' => $expense->id]];
+        return ['id' => $expense->id];
     }
 
     private function paySupplier(array $op, $shop, $user): array
@@ -402,7 +421,7 @@ class SyncController extends Controller
 
         // SupplierPaymentObserver met à jour purchase + supplier.balance automatiquement
 
-        return ['synced' => true, 'data' => ['id' => $payment->id, 'purchase_id' => $purchase->id]];
+        return ['id' => $payment->id, 'purchase_id' => $purchase->id];
     }
 
     /**
