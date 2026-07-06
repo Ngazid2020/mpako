@@ -173,6 +173,10 @@ class SyncController extends Controller
         $user    = $request->user();
         $results = [];
 
+        // Mappe _local_purchase_rowid → server purchase id
+        // Nécessaire quand complete_purchase / pay_purchase référencent un achat créé offline dans la même session
+        $rowIdToServerId = [];
+
         // Trier par date offline pour respecter l'ordre chronologique
         $operations = collect($request->operations)
             ->sortBy('created_offline_at')
@@ -180,18 +184,30 @@ class SyncController extends Controller
 
         foreach ($operations as $op) {
             try {
-                $result = DB::transaction(function () use ($op, $shop, $user) {
+                // Snapshot du mapping au moment de l'exécution (passé par valeur dans la closure)
+                $idMap = $rowIdToServerId;
+
+                $result = DB::transaction(function () use ($op, $shop, $user, $idMap) {
                     return match ($op['type']) {
-                        'create_sale'         => $this->createSale($op, $shop, $user),
-                        'create_credit'       => $this->createCredit($op, $shop, $user),
-                        'create_credit_payment' => $this->createCreditPayment($op, $shop, $user),
+                        'create_sale'             => $this->createSale($op, $shop, $user),
+                        'create_credit'           => $this->createCredit($op, $shop, $user),
+                        'create_credit_payment'   => $this->createCreditPayment($op, $shop, $user),
                         'create_stock_adjustment' => $this->createStockAdjustment($op, $shop, $user),
-                        'create_purchase'     => $this->createPurchase($op, $shop, $user),
-                        'create_expense'      => $this->createExpense($op, $shop, $user),
-                        'pay_supplier'        => $this->paySupplier($op, $shop, $user),
-                        default               => throw new \InvalidArgumentException("Type inconnu : {$op['type']}"),
+                        'create_purchase'         => $this->createPurchase($op, $shop, $user),
+                        'create_expense'          => $this->createExpense($op, $shop, $user),
+                        'pay_supplier'            => $this->paySupplier($op, $shop, $user),
+                        'complete_purchase'       => $this->completePurchase($op, $shop, $idMap),
+                        'pay_purchase'            => $this->payPurchase($op, $shop, $user, $idMap),
+                        default                   => throw new \InvalidArgumentException("Type inconnu : {$op['type']}"),
                     };
                 });
+
+                // Après create_purchase réussi : enregistrer le mapping rowid → id serveur
+                if ($op['type'] === 'create_purchase'
+                    && isset($result['id'], $op['payload']['_local_purchase_rowid'])
+                ) {
+                    $rowIdToServerId[(int) $op['payload']['_local_purchase_rowid']] = (int) $result['id'];
+                }
 
                 $results[] = [
                     'local_id' => $op['local_id'],
@@ -385,5 +401,92 @@ class SyncController extends Controller
         // SupplierPaymentObserver met à jour purchase + supplier.balance automatiquement
 
         return ['synced' => true, 'data' => ['id' => $payment->id, 'purchase_id' => $purchase->id]];
+    }
+
+    /**
+     * Valide un achat (pending → completed) depuis la file offline.
+     *
+     * Le payload peut contenir :
+     *   - purchase_id            : achat déjà synchronisé (id serveur connu)
+     *   - _local_purchase_rowid  : achat créé offline dans la même session
+     *                              → résolu via $rowIdToServerId
+     *
+     * Le PurchaseObserver gère automatiquement : stock, buy_price, supplier.balance.
+     */
+    private function completePurchase(array $op, $shop, array $rowIdToServerId): array
+    {
+        $p          = $op['payload'];
+        $purchaseId = $p['purchase_id'] ?? null;
+
+        if (! $purchaseId && isset($p['_local_purchase_rowid'])) {
+            $purchaseId = $rowIdToServerId[(int) $p['_local_purchase_rowid']] ?? null;
+        }
+
+        if (! $purchaseId) {
+            throw new \RuntimeException('Impossible de résoudre l\'achat à valider (rowid introuvable).');
+        }
+
+        $purchase = $shop->purchases()->findOrFail($purchaseId);
+
+        // Idempotent : déjà validé → OK sans erreur
+        if ($purchase->status === 'completed') {
+            return ['id' => $purchase->id, 'status' => 'completed', 'already_done' => true];
+        }
+
+        if ($purchase->status !== 'pending') {
+            throw new \RuntimeException("Achat non validable (statut : {$purchase->status}).");
+        }
+
+        $purchase->update(['status' => 'completed']);
+
+        return ['id' => $purchase->id, 'status' => 'completed'];
+    }
+
+    /**
+     * Enregistre un paiement de la dette fournisseur depuis la file offline.
+     *
+     * Le payload peut contenir :
+     *   - purchase_id            : achat déjà synchronisé
+     *   - _local_purchase_rowid  : achat créé offline dans la même session
+     *
+     * Le SupplierPaymentObserver gère : paid_amount, debt_amount, payment_status, supplier.balance.
+     */
+    private function payPurchase(array $op, $shop, $user, array $rowIdToServerId): array
+    {
+        $p          = $op['payload'];
+        $purchaseId = $p['purchase_id'] ?? null;
+
+        if (! $purchaseId && isset($p['_local_purchase_rowid'])) {
+            $purchaseId = $rowIdToServerId[(int) $p['_local_purchase_rowid']] ?? null;
+        }
+
+        if (! $purchaseId) {
+            throw new \RuntimeException('Impossible de résoudre l\'achat pour le paiement (rowid introuvable).');
+        }
+
+        $purchase = $shop->purchases()->findOrFail($purchaseId);
+
+        if ((float) $purchase->debt_amount <= 0) {
+            return ['id' => $purchase->id, 'already_paid' => true];
+        }
+
+        $amount = min((float) $p['amount'], (float) $purchase->debt_amount);
+
+        SupplierPayment::create([
+            'purchase_id' => $purchase->id,
+            'supplier_id' => $purchase->supplier_id,
+            'user_id'     => $user->id,
+            'amount'      => $amount,
+            'paid_at'     => $p['paid_at'] ?? now()->toDateString(),
+        ]);
+
+        $purchase->refresh();
+
+        return [
+            'id'        => $purchase->id,
+            'paid'      => $amount,
+            'remaining' => (float) $purchase->debt_amount,
+            'status'    => $purchase->payment_status,
+        ];
     }
 }
