@@ -74,7 +74,7 @@ class SyncController extends Controller
             ]);
 
         $expenses = $shop->expenses()
-            ->with('expenseCategory')
+            ->with('category')
             ->when($since, fn($q) => $q->where('updated_at', '>=', $since))
             ->latest()
             ->limit(200)
@@ -82,7 +82,7 @@ class SyncController extends Controller
             ->map(fn($e) => [
                 'id'                  => $e->id,
                 'expense_category_id' => $e->expense_category_id,
-                'category_name'       => $e->expenseCategory?->name,
+                'category_name'       => $e->category?->name,
                 'description'         => $e->description,
                 'amount'              => $e->amount,
                 'spent_at'            => $e->spent_at,
