@@ -18,6 +18,27 @@ class CustomerController extends Controller
         return response()->json(CustomerResource::collection($customers));
     }
 
+    public function store(Request $request): JsonResponse
+    {
+        $shop = $request->attributes->get('shop');
+
+        $validated = $request->validate([
+            'name'    => 'required|string|max:255',
+            'phone'   => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+        ]);
+
+        $customer = $shop->customers()->create([
+            'name'      => $validated['name'],
+            'phone'     => $validated['phone'] ?? null,
+            'address'   => $validated['address'] ?? null,
+            'balance'   => 0,
+            'is_active' => true,
+        ]);
+
+        return response()->json(new CustomerResource($customer), 201);
+    }
+
     public function credits(Request $request, string $shopSlug, int $customerId): JsonResponse
     {
         $shop     = $request->attributes->get('shop');

@@ -49,7 +49,7 @@ class SyncController extends Controller
             ]);
 
         $purchases = $shop->purchases()
-            ->with('items')
+            ->with(['items', 'supplier'])
             ->when($since, fn($q) => $q->where('updated_at', '>=', $since))
             ->latest()
             ->limit(200)
@@ -58,17 +58,18 @@ class SyncController extends Controller
                 'id'             => $pur->id,
                 'reference'      => $pur->reference,
                 'supplier_id'    => $pur->supplier_id,
+                'supplier_name'  => $pur->supplier?->name,
                 'status'         => $pur->status,
                 'payment_status' => $pur->payment_status,
-                'total_amount'   => $pur->total_amount,
-                'paid_amount'    => $pur->paid_amount,
-                'debt_amount'    => $pur->debt_amount,
+                'total_amount'   => (float) $pur->total_amount,
+                'paid_amount'    => (float) $pur->paid_amount,
+                'debt_amount'    => (float) $pur->debt_amount,
                 'items'          => $pur->items->map(fn($i) => [
                     'product_id'   => $i->product_id,
                     'product_name' => $i->product_name,
-                    'quantity'     => $i->quantity,
-                    'unit_cost'    => $i->unit_cost,
-                    'subtotal'     => $i->subtotal,
+                    'quantity'     => (float) $i->quantity,
+                    'unit_cost'    => (float) $i->unit_cost,
+                    'subtotal'     => (float) $i->subtotal,
                 ]),
                 'updated_at'     => $pur->updated_at,
             ]);
@@ -348,11 +349,12 @@ class SyncController extends Controller
 
         foreach ($p['items'] as $item) {
             PurchaseItem::create([
-                'purchase_id' => $purchase->id,
-                'product_id'  => $item['product_id'],
-                'quantity'    => $item['quantity'],
-                'unit_cost'   => $item['unit_cost'],
-                'subtotal'    => $item['subtotal'],
+                'purchase_id'  => $purchase->id,
+                'product_id'   => $item['product_id'],
+                'product_name' => $item['product_name'] ?? '',
+                'quantity'     => $item['quantity'],
+                'unit_cost'    => $item['unit_cost'],
+                'subtotal'     => $item['subtotal'],
             ]);
         }
 
