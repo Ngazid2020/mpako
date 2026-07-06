@@ -43,6 +43,7 @@ class SyncController extends Controller
                 'id'         => $s->id,
                 'name'       => $s->name,
                 'phone'      => $s->phone,
+                'address'    => $s->address,
                 'balance'    => $s->balance,
                 'updated_at' => $s->updated_at,
             ]);
@@ -106,6 +107,28 @@ class SyncController extends Controller
                 'created_at'   => $m->created_at,
             ]);
 
+        $creditPayments = DB::table('credit_payments')
+            ->join('credits', 'credits.id', '=', 'credit_payments.credit_id')
+            ->where('credits.shop_id', $shop->id)
+            ->when($since, fn($q) => $q->where('credit_payments.created_at', '>=', $since))
+            ->select([
+                'credit_payments.id',
+                'credit_payments.credit_id',
+                'credit_payments.amount',
+                'credit_payments.paid_at',
+                'credit_payments.created_at',
+            ])
+            ->latest('credit_payments.created_at')
+            ->limit(200)
+            ->get()
+            ->map(fn($cp) => [
+                'id'         => $cp->id,
+                'credit_id'  => $cp->credit_id,
+                'amount'     => (float) $cp->amount,
+                'paid_at'    => $cp->paid_at,
+                'created_at' => $cp->created_at,
+            ]);
+
         return response()->json([
             'products'        => ProductResource::collection(
                 $query('products')->with('unit')->get()
@@ -123,6 +146,7 @@ class SyncController extends Controller
             'purchases'          => $purchases,
             'expenses'           => $expenses,
             'stock_movements'    => $stockMovements,
+            'credit_payments'    => $creditPayments,
             'expense_categories' => $shop->expenseCategories()
                 ->get()
                 ->map(fn($ec) => ['id' => $ec->id, 'name' => $ec->name]),

@@ -61,6 +61,12 @@ class ReportController
             ->where('shop_id', $shopId)
             ->sum('balance');
 
+        $overdueCreditsCount = DB::table('credits')
+            ->where('shop_id', $shopId)
+            ->where('status', '!=', 'paid')
+            ->where('due_date', '<', $today)
+            ->count();
+
         return response()->json([
             'today' => [
                 'sales_count' => (clone $todaySales)->count(),
@@ -81,8 +87,9 @@ class ReportController
                 'count'        => (int) ($pendingPurchases->count ?? 0),
                 'total_amount' => (float) ($pendingPurchases->total_amount ?? 0),
             ],
-            'supplier_debt' => (float) $supplierDebt,
-            'customer_debt' => (float) $customerDebt,
+            'supplier_debt'          => (float) $supplierDebt,
+            'customer_debt'          => (float) $customerDebt,
+            'overdue_credits_count'  => (int) $overdueCreditsCount,
         ]);
     }
 
