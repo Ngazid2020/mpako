@@ -110,57 +110,98 @@
                 @else
                     <div class="divide-y dark:divide-gray-700">
                         @foreach($cart as $productId => $item)
-                            <div class="flex items-center gap-4 p-4">
+                            <div class="p-4">
+                                {{-- Ligne principale --}}
+                                <div class="flex items-center gap-4">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-medium text-gray-900 dark:text-white truncate">
+                                            {{ $item['product_name'] }}
+                                        </p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                                            {{ number_format($item['unit_price'], 0, ',', ' ') }} KMF / {{ $item['unit'] }}
+                                        </p>
+                                    </div>
 
-                                <div class="flex-1 min-w-0">
-                                    <p class="font-medium text-gray-900 dark:text-white truncate">
-                                        {{ $item['product_name'] }}
-                                    </p>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        {{ number_format($item['unit_price'], 0, ',', ' ') }} KMF / {{ $item['unit'] }}
-                                    </p>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] - 1 }})"
+                                            class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 flex items-center justify-center text-gray-700 dark:text-gray-300 transition-colors font-bold"
+                                        >−</button>
+
+                                        <input
+                                            type="number"
+                                            value="{{ $item['quantity'] }}"
+                                            wire:change="updateQuantity({{ $productId }}, $event.target.value)"
+                                            class="w-16 text-center rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-semibold"
+                                            min="0"
+                                            max="{{ $item['stock_max'] }}"
+                                            step="1"
+                                        />
+
+                                        <button
+                                            wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] + 1 }})"
+                                            class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900/30 flex items-center justify-center text-gray-700 dark:text-gray-300 transition-colors font-bold"
+                                        >+</button>
+                                    </div>
+
+                                    <div class="text-right w-28">
+                                        <p class="font-bold text-gray-900 dark:text-white">
+                                            {{ number_format($item['subtotal'], 0, ',', ' ') }}
+                                            <span class="text-xs text-gray-500">KMF</span>
+                                        </p>
+                                        @if(($item['discount_amount'] ?? 0) > 0)
+                                            <p class="text-xs text-green-600 dark:text-green-400">
+                                                −{{ number_format($item['discount_amount'], 0, ',', ' ') }} KMF
+                                            </p>
+                                        @endif
+                                    </div>
+
+                                    <button
+                                        wire:click="removeFromCart({{ $productId }})"
+                                        class="text-red-400 hover:text-red-600 transition-colors"
+                                    >
+                                        <x-heroicon-o-x-mark class="w-5 h-5" />
+                                    </button>
                                 </div>
 
-                                <div class="flex items-center gap-2">
-                                    <button
-                                        wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] - 1 }})"
-                                        class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 flex items-center justify-center text-gray-700 dark:text-gray-300 transition-colors font-bold"
-                                    >−</button>
-
+                                {{-- Ligne remise --}}
+                                <div class="flex items-center gap-2 mt-2 ml-1">
+                                    <span class="text-xs text-gray-400 shrink-0">Remise :</span>
+                                    <select
+                                        wire:model.live="cart.{{ $productId }}.discount_type"
+                                        class="text-xs rounded-md border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1 pl-2 pr-6 text-gray-600"
+                                    >
+                                        <option value="percent">%</option>
+                                        <option value="fixed">KMF</option>
+                                    </select>
                                     <input
                                         type="number"
-                                        value="{{ $item['quantity'] }}"
-                                        wire:change="updateQuantity({{ $productId }}, $event.target.value)"
-                                        class="w-16 text-center rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-semibold"
+                                        wire:model.live.debounce.500ms="cart.{{ $productId }}.discount_value"
+                                        class="w-20 text-xs rounded-md border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1 text-center"
                                         min="0"
-                                        max="{{ $item['stock_max'] }}"
-                                        step="1"
+                                        placeholder="0"
+                                        step="any"
                                     />
-
-                                    <button
-                                        wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] + 1 }})"
-                                        class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900/30 flex items-center justify-center text-gray-700 dark:text-gray-300 transition-colors font-bold"
-                                    >+</button>
+                                    @if(($item['discount_amount'] ?? 0) > 0)
+                                        <span class="text-xs font-semibold text-green-600 dark:text-green-400">
+                                            économie : {{ number_format($item['discount_amount'], 0, ',', ' ') }} KMF
+                                        </span>
+                                    @endif
                                 </div>
-
-                                <div class="text-right w-28">
-                                    <p class="font-bold text-gray-900 dark:text-white">
-                                        {{ number_format($item['subtotal'], 0, ',', ' ') }}
-                                        <span class="text-xs text-gray-500">KMF</span>
-                                    </p>
-                                </div>
-
-                                <button
-                                    wire:click="removeFromCart({{ $productId }})"
-                                    class="text-red-400 hover:text-red-600 transition-colors"
-                                >
-                                    <x-heroicon-o-x-mark class="w-5 h-5" />
-                                </button>
                             </div>
                         @endforeach
                     </div>
 
-                    <div class="p-4 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600">
+                    @php $totalDiscount = collect($cart)->sum('discount_amount'); @endphp
+                    <div class="p-4 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 space-y-1">
+                        @if($totalDiscount > 0)
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-500 dark:text-gray-400">Remise totale</span>
+                                <span class="font-semibold text-green-600 dark:text-green-400">
+                                    −{{ number_format($totalDiscount, 0, ',', ' ') }} KMF
+                                </span>
+                            </div>
+                        @endif
                         <div class="flex justify-between items-center">
                             <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">Total</span>
                             <span class="text-2xl font-bold text-primary-600 dark:text-primary-400">
@@ -377,6 +418,11 @@
                                 <span class="text-gray-700 dark:text-gray-300">
                                     {{ $it['product_name'] }}
                                     <span class="text-gray-400">× {{ $it['quantity'] }} {{ $it['unit'] }}</span>
+                                    @if(($it['discount_amount'] ?? 0) > 0)
+                                        <span class="text-green-600 text-xs ml-1">
+                                            (−{{ number_format($it['discount_amount'], 0, ',', ' ') }} KMF)
+                                        </span>
+                                    @endif
                                 </span>
                                 <span class="font-medium text-gray-900 dark:text-white whitespace-nowrap ml-4">
                                     {{ number_format($it['subtotal'], 0, ',', ' ') }} KMF
@@ -385,7 +431,14 @@
                         @endforeach
                     </div>
 
+                    @php $receiptDiscount = collect($receipt['items'])->sum('discount_amount'); @endphp
                     <div class="border-t dark:border-gray-700 pt-3 space-y-1">
+                        @if($receiptDiscount > 0)
+                            <div class="flex justify-between text-sm text-green-600 dark:text-green-400">
+                                <span>Remise</span>
+                                <span>−{{ number_format($receiptDiscount, 0, ',', ' ') }} KMF</span>
+                            </div>
+                        @endif
                         <div class="flex justify-between text-lg font-bold">
                             <span class="text-gray-900 dark:text-white">Total</span>
                             <span class="text-primary-600 dark:text-primary-400">

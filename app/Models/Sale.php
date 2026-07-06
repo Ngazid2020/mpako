@@ -18,15 +18,17 @@ class Sale extends Model
         'total_amount',
         'paid_amount',
         'change_amount',
+        'discount_amount',
         'note',
         'customer_id',
         'payment_type',
     ];
 
     protected $casts = [
-        'total_amount'  => 'decimal:2',
-        'paid_amount'   => 'decimal:2',
-        'change_amount' => 'decimal:2',
+        'total_amount'    => 'decimal:2',
+        'paid_amount'     => 'decimal:2',
+        'change_amount'   => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
     // ─────────────────────────────────────────────

@@ -179,13 +179,16 @@ class Caisse extends Page
         } else {
             // Nouveau produit dans le panier
             $this->cart[$productId] = [
-                'product_id'   => $product->id,
-                'product_name' => $product->name,
-                'unit_price'   => (float) $product->sell_price,
-                'quantity'     => 1,
-                'subtotal'     => (float) $product->sell_price,
-                'stock_max'    => (float) $product->stock_qty,
-                'unit'         => $product->unit?->abbreviation ?? 'pcs',
+                'product_id'      => $product->id,
+                'product_name'    => $product->name,
+                'unit_price'      => (float) $product->sell_price,
+                'quantity'        => 1,
+                'subtotal'        => (float) $product->sell_price,
+                'stock_max'       => (float) $product->stock_qty,
+                'unit'            => $product->unit?->abbreviation ?? 'pcs',
+                'discount_type'   => 'percent',
+                'discount_value'  => 0,
+                'discount_amount' => 0,
             ];
         }
 
@@ -217,6 +220,38 @@ class Caisse extends Page
 
         $this->cart[$productId]['quantity'] = $quantity;
         $this->cart[$productId]['subtotal']  = $quantity * $this->cart[$productId]['unit_price'];
+        $this->recalculateItemDiscount($productId);
+    }
+
+    /**
+     * Déclenché quand cart.{id}.discount_type ou discount_value change
+     */
+    public function updatedCart(mixed $value, string $key): void
+    {
+        $parts = explode('.', $key);
+        if (count($parts) !== 2) return;
+        [$productId, $field] = $parts;
+        if (in_array($field, ['discount_type', 'discount_value'])) {
+            $this->recalculateItemDiscount((int) $productId);
+        }
+    }
+
+    private function recalculateItemDiscount(int $productId): void
+    {
+        if (!isset($this->cart[$productId])) return;
+        $item  = $this->cart[$productId];
+        $base  = (float) $item['unit_price'] * (float) $item['quantity'];
+        $type  = $item['discount_type'] ?? 'percent';
+        $value = (float) ($item['discount_value'] ?? 0);
+
+        $discAmount = $value > 0
+            ? ($type === 'percent'
+                ? round($base * $value / 100, 2)
+                : min(round($value, 2), $base))
+            : 0;
+
+        $this->cart[$productId]['discount_amount'] = $discAmount;
+        $this->cart[$productId]['subtotal']         = round($base - $discAmount, 2);
     }
 
     /**
@@ -289,25 +324,30 @@ class Caisse extends Page
                     }
                 }
 
+                $totalDiscount = collect($this->cart)->sum('discount_amount');
+
                 $sale = Sale::create([
-                    'shop_id'       => $shop->id,
-                    'user_id'       => auth()->id(),
-                    'reference'     => Sale::generateReference($shop->id),
-                    'status'        => 'completed',
-                    'total_amount'  => $total,
-                    'paid_amount'   => $this->paidAmount,
-                    'change_amount' => $this->getChange(),
-                    'note'          => $this->note,
+                    'shop_id'         => $shop->id,
+                    'user_id'         => auth()->id(),
+                    'reference'       => Sale::generateReference($shop->id),
+                    'status'          => 'completed',
+                    'total_amount'    => $total,
+                    'paid_amount'     => $this->paidAmount,
+                    'change_amount'   => $this->getChange(),
+                    'discount_amount' => $totalDiscount,
+                    'note'            => $this->note,
                 ]);
 
                 foreach ($this->cart as $item) {
                     SaleItem::create([
-                        'sale_id'      => $sale->id,
-                        'product_id'   => $item['product_id'],
-                        'product_name' => $item['product_name'],
-                        'quantity'     => $item['quantity'],
-                        'unit_price'   => $item['unit_price'],
-                        'subtotal'     => $item['subtotal'],
+                        'sale_id'        => $sale->id,
+                        'product_id'     => $item['product_id'],
+                        'product_name'   => $item['product_name'],
+                        'quantity'       => $item['quantity'],
+                        'unit_price'     => $item['unit_price'],
+                        'discount_type'  => ($item['discount_value'] ?? 0) > 0 ? ($item['discount_type'] ?? null) : null,
+                        'discount_value' => $item['discount_value'] ?? 0,
+                        'subtotal'       => $item['subtotal'],
                     ]);
 
                     StockMovement::create([
@@ -430,26 +470,31 @@ class Caisse extends Page
                     }
                 }
 
+                $totalDiscount = collect($this->cart)->sum('discount_amount');
+
                 $sale = Sale::create([
-                    'shop_id'       => $shop->id,
-                    'user_id'       => auth()->id(),
-                    'customer_id'   => $customer->id,
-                    'payment_type'  => 'credit',
-                    'reference'     => Sale::generateReference($shop->id),
-                    'status'        => 'completed',
-                    'total_amount'  => $total,
-                    'paid_amount'   => 0,
-                    'change_amount' => 0,
+                    'shop_id'         => $shop->id,
+                    'user_id'         => auth()->id(),
+                    'customer_id'     => $customer->id,
+                    'payment_type'    => 'credit',
+                    'reference'       => Sale::generateReference($shop->id),
+                    'status'          => 'completed',
+                    'total_amount'    => $total,
+                    'paid_amount'     => 0,
+                    'change_amount'   => 0,
+                    'discount_amount' => $totalDiscount,
                 ]);
 
                 foreach ($this->cart as $item) {
                     SaleItem::create([
-                        'sale_id'      => $sale->id,
-                        'product_id'   => $item['product_id'],
-                        'product_name' => $item['product_name'],
-                        'quantity'     => $item['quantity'],
-                        'unit_price'   => $item['unit_price'],
-                        'subtotal'     => $item['subtotal'],
+                        'sale_id'        => $sale->id,
+                        'product_id'     => $item['product_id'],
+                        'product_name'   => $item['product_name'],
+                        'quantity'       => $item['quantity'],
+                        'unit_price'     => $item['unit_price'],
+                        'discount_type'  => ($item['discount_value'] ?? 0) > 0 ? ($item['discount_type'] ?? null) : null,
+                        'discount_value' => $item['discount_value'] ?? 0,
+                        'subtotal'       => $item['subtotal'],
                     ]);
 
                     StockMovement::create([
