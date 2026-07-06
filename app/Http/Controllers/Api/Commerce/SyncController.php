@@ -9,11 +9,13 @@ use App\Http\Resources\Api\ProductResource;
 use App\Http\Resources\Api\SaleResource;
 use App\Models\Credit;
 use App\Models\CreditPayment;
+use App\Models\Expense;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StockMovement;
+use App\Models\SupplierPayment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,20 +35,98 @@ class SyncController extends Controller
             ? $shop->$relation()->where('updated_at', '>', $since)
             : $shop->$relation();
 
+        $suppliers = $shop->suppliers()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn($s) => [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'phone'      => $s->phone,
+                'balance'    => $s->balance,
+                'updated_at' => $s->updated_at,
+            ]);
+
+        $purchases = $shop->purchases()
+            ->with('items')
+            ->when($since, fn($q) => $q->where('updated_at', '>=', $since))
+            ->latest()
+            ->limit(200)
+            ->get()
+            ->map(fn($pur) => [
+                'id'             => $pur->id,
+                'reference'      => $pur->reference,
+                'supplier_id'    => $pur->supplier_id,
+                'status'         => $pur->status,
+                'payment_status' => $pur->payment_status,
+                'total_amount'   => $pur->total_amount,
+                'paid_amount'    => $pur->paid_amount,
+                'debt_amount'    => $pur->debt_amount,
+                'items'          => $pur->items->map(fn($i) => [
+                    'product_id'   => $i->product_id,
+                    'product_name' => $i->product_name,
+                    'quantity'     => $i->quantity,
+                    'unit_cost'    => $i->unit_cost,
+                    'subtotal'     => $i->subtotal,
+                ]),
+                'updated_at'     => $pur->updated_at,
+            ]);
+
+        $expenses = $shop->expenses()
+            ->with('expenseCategory')
+            ->when($since, fn($q) => $q->where('updated_at', '>=', $since))
+            ->latest()
+            ->limit(200)
+            ->get()
+            ->map(fn($e) => [
+                'id'                  => $e->id,
+                'expense_category_id' => $e->expense_category_id,
+                'category_name'       => $e->expenseCategory?->name,
+                'description'         => $e->description,
+                'amount'              => $e->amount,
+                'spent_at'            => $e->spent_at,
+                'updated_at'          => $e->updated_at,
+            ]);
+
+        $stockMovements = $shop->stockMovements()
+            ->with('product')
+            ->when($since, fn($q) => $q->where('created_at', '>=', $since))
+            ->latest()
+            ->limit(200)
+            ->get()
+            ->map(fn($m) => [
+                'id'           => $m->id,
+                'product_id'   => $m->product_id,
+                'product_name' => $m->product?->name,
+                'type'         => $m->type,
+                'quantity'     => $m->quantity,
+                'stock_before' => $m->stock_before,
+                'stock_after'  => $m->stock_after,
+                'reason'       => $m->reason,
+                'created_at'   => $m->created_at,
+            ]);
+
         return response()->json([
-            'products'  => ProductResource::collection(
+            'products'        => ProductResource::collection(
                 $query('products')->with('unit')->get()
             ),
-            'customers' => CustomerResource::collection(
+            'customers'       => CustomerResource::collection(
                 $query('customers')->get()
             ),
-            'credits'   => CreditResource::collection(
+            'credits'         => CreditResource::collection(
                 $query('credits')->get()
             ),
-            'sales'     => SaleResource::collection(
+            'sales'           => SaleResource::collection(
                 $query('sales')->with('items')->get()
             ),
-            'synced_at' => now()->toISOString(),
+            'suppliers'          => $suppliers,
+            'purchases'          => $purchases,
+            'expenses'           => $expenses,
+            'stock_movements'    => $stockMovements,
+            'expense_categories' => $shop->expenseCategories()
+                ->get()
+                ->map(fn($ec) => ['id' => $ec->id, 'name' => $ec->name]),
+            'synced_at'          => now()->toISOString(),
         ]);
     }
 
@@ -82,6 +162,8 @@ class SyncController extends Controller
                         'create_credit_payment' => $this->createCreditPayment($op, $shop, $user),
                         'create_stock_adjustment' => $this->createStockAdjustment($op, $shop, $user),
                         'create_purchase'     => $this->createPurchase($op, $shop, $user),
+                        'create_expense'      => $this->createExpense($op, $shop, $user),
+                        'pay_supplier'        => $this->paySupplier($op, $shop, $user),
                         default               => throw new \InvalidArgumentException("Type inconnu : {$op['type']}"),
                     };
                 });
@@ -236,5 +318,47 @@ class SyncController extends Controller
         // PurchaseObserver gère stock si status = 'completed'
 
         return ['id' => $purchase->id, 'reference' => $purchase->reference];
+    }
+
+    private function createExpense(array $op, $shop, $user): array
+    {
+        $p = $op['payload'];
+
+        $expense = Expense::create([
+            'shop_id'             => $shop->id,
+            'user_id'             => $user->id,
+            'expense_category_id' => $p['expense_category_id'] ?? null,
+            'description'         => $p['description'] ?? null,
+            'amount'              => $p['amount'],
+            'spent_at'            => $p['spent_at'] ?? now()->toDateString(),
+        ]);
+
+        return ['synced' => true, 'data' => ['id' => $expense->id]];
+    }
+
+    private function paySupplier(array $op, $shop, $user): array
+    {
+        $p = $op['payload'];
+
+        $purchase = $shop->purchases()
+            ->whereIn('payment_status', ['unpaid', 'partial'])
+            ->where('supplier_id', $p['supplier_id'])
+            ->latest()
+            ->first();
+
+        if (! $purchase) {
+            throw new \RuntimeException("Aucun achat impayé trouvé pour ce fournisseur.");
+        }
+
+        $payment = SupplierPayment::create([
+            'purchase_id' => $purchase->id,
+            'amount'      => $p['amount'],
+            'paid_at'     => $p['paid_at'] ?? now(),
+            'note'        => $p['note'] ?? null,
+        ]);
+
+        // SupplierPaymentObserver met à jour purchase + supplier.balance automatiquement
+
+        return ['synced' => true, 'data' => ['id' => $payment->id, 'purchase_id' => $purchase->id]];
     }
 }

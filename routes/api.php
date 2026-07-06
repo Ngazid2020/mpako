@@ -3,8 +3,13 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Commerce\CreditController;
 use App\Http\Controllers\Api\Commerce\CustomerController;
+use App\Http\Controllers\Api\Commerce\ExpenseController;
 use App\Http\Controllers\Api\Commerce\ProductController;
+use App\Http\Controllers\Api\Commerce\PurchaseController;
+use App\Http\Controllers\Api\Commerce\ReportController;
 use App\Http\Controllers\Api\Commerce\SaleController;
+use App\Http\Controllers\Api\Commerce\StockController;
+use App\Http\Controllers\Api\Commerce\SupplierController;
 use App\Http\Controllers\Api\Commerce\SyncController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Middleware\Api\ResolveShop;
@@ -57,5 +62,27 @@ Route::middleware('auth:sanctum')->group(function () {
             // Ventes
             Route::get('sales',  [SaleController::class, 'index']);
             Route::post('sales', [SaleController::class, 'store']);
+
+            // Fournisseurs
+            Route::get('suppliers', [SupplierController::class, 'index']);
+            Route::post('suppliers/{supplier}/pay', [SupplierController::class, 'pay']);
+
+            // Achats
+            Route::get('purchases', [PurchaseController::class, 'index']);
+            Route::post('purchases', [PurchaseController::class, 'store']);
+
+            // Dépenses
+            Route::get('expenses', [ExpenseController::class, 'index']);
+            Route::post('expenses', [ExpenseController::class, 'store']);
+
+            // Mouvements de stock
+            Route::get('stock-movements', [StockController::class, 'movements']);
+            Route::post('stock-adjustments', [StockController::class, 'adjust']);
+
+            // Rapports
+            Route::get('reports/summary', [ReportController::class, 'summary']);
+            Route::get('reports/sales-by-day', [ReportController::class, 'salesByDay']);
+            Route::get('reports/top-products', [ReportController::class, 'topProducts']);
+            Route::get('reports/expenses-by-category', [ReportController::class, 'expensesByCategory']);
         });
 });
