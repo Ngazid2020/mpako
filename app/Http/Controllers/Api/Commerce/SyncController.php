@@ -86,7 +86,8 @@ class SyncController extends Controller
                 'description'         => $e->description,
                 'amount'              => $e->amount,
                 'spent_at'            => $e->spent_at,
-                'updated_at'          => $e->updated_at,
+                'created_at'          => $e->created_at?->toISOString(),
+                'updated_at'          => $e->updated_at?->toISOString(),
             ]);
 
         $stockMovements = $shop->stockMovements()
