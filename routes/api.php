@@ -69,8 +69,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('suppliers/{supplier}/pay', [SupplierController::class, 'pay']);
 
             // Achats
-            Route::get('purchases', [PurchaseController::class, 'index']);
-            Route::post('purchases', [PurchaseController::class, 'store']);
+            Route::get('purchases',                          [PurchaseController::class, 'index']);
+            Route::post('purchases',                         [PurchaseController::class, 'store']);
+            Route::post('purchases/{purchase}/complete',     [PurchaseController::class, 'complete']);
+            Route::post('purchases/{purchase}/pay',          [PurchaseController::class, 'pay']);
 
             // Dépenses
             Route::get('expenses', [ExpenseController::class, 'index']);
