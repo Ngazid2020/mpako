@@ -136,6 +136,8 @@
                                             min="0"
                                             max="{{ $item['stock_max'] }}"
                                             step="1"
+                                            inputmode="numeric"
+                                            x-on:focus="$el.select()"
                                         />
 
                                         <button
@@ -181,6 +183,8 @@
                                         min="0"
                                         placeholder="0"
                                         step="any"
+                                        inputmode="decimal"
+                                        x-on:focus="$el.select()"
                                     />
                                     @if(($item['discount_amount'] ?? 0) > 0)
                                         <span class="text-xs font-semibold text-green-600 dark:text-green-400">
@@ -230,23 +234,28 @@
                 </div>
 
                 {{-- Montant reçu --}}
-                <div>
+                <div x-data="{ focused: false }">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         💵 Montant reçu (KMF)
                     </label>
                     <input
                         type="number"
-                        wire:model.live="paidAmount"
+                        wire:model.live.debounce.600ms="paidAmount"
                         placeholder="0"
+                        inputmode="numeric"
                         class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-2xl text-center font-bold py-3 focus:ring-2 focus:ring-primary-500"
                         min="0"
+                        step="1"
+                        x-on:focus="$el.select()"
                     />
 
+                    {{-- Billets rapides --}}
                     <div class="grid grid-cols-3 gap-2 mt-2">
                         @foreach([500, 1000, 2000, 5000, 10000, 20000] as $amount)
                             <button
+                                type="button"
                                 wire:click="$set('paidAmount', {{ $amount }})"
-                                class="py-2 px-1 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 hover:bg-primary-100 dark:hover:bg-primary-900/30 text-gray-700 dark:text-gray-300 transition-colors"
+                                class="py-2 px-1 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 hover:bg-primary-100 dark:hover:bg-primary-900/30 text-gray-700 dark:text-gray-300 transition-colors"
                             >
                                 {{ number_format($amount, 0, ',', ' ') }}
                             </button>
@@ -254,12 +263,35 @@
                     </div>
 
                     @if($this->getTotal() > 0)
-                        <button
-                            wire:click="$set('paidAmount', {{ $this->getTotal() }})"
-                            class="w-full mt-2 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 transition-colors"
-                        >
-                            Montant exact
-                        </button>
+                        @php
+                            $total  = $this->getTotal();
+                            $rounds = [];
+                            // Arrondi aux 500 KMF supérieurs s'il est différent du total exact
+                            $ceil500 = ceil($total / 500) * 500;
+                            if ($ceil500 != $total) { $rounds[] = (int)$ceil500; }
+                            // Arrondi aux 1 000 KMF supérieurs
+                            $ceil1000 = ceil($total / 1000) * 1000;
+                            if ($ceil1000 != $ceil500 && $ceil1000 != $total) { $rounds[] = (int)$ceil1000; }
+                        @endphp
+
+                        <div class="flex gap-2 mt-2">
+                            <button
+                                type="button"
+                                wire:click="$set('paidAmount', {{ $total }})"
+                                class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-100 dark:bg-primary-900/30 hover:bg-primary-200 dark:hover:bg-primary-900/50 text-primary-700 dark:text-primary-300 transition-colors"
+                            >
+                                Exact
+                            </button>
+                            @foreach($rounds as $r)
+                                <button
+                                    type="button"
+                                    wire:click="$set('paidAmount', {{ $r }})"
+                                    class="flex-1 py-2 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors"
+                                >
+                                    {{ number_format($r, 0, ',', ' ') }}
+                                </button>
+                            @endforeach
+                        </div>
                     @endif
                 </div>
 
