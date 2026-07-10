@@ -50,6 +50,8 @@ class CommercePanelProvider extends PanelProvider
             // MULTITENANCY : La clé de tout !
             // ──────────────────────────────────────
             ->tenant(Shop::class, ownershipRelationship: 'shop', slugAttribute: 'slug')
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('60s')
 
             // Le commerçant peut créer/modifier son commerce depuis le panel
             ->tenantRegistration(\App\Filament\Commerce\Pages\RegisterShop::class)

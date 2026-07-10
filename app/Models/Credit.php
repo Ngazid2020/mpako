@@ -115,4 +115,22 @@ class Credit extends Model
             && now()->startOfDay()->gt($this->due_date->copy()->endOfDay())
             && $this->status !== 'paid';
     }
+
+    // ─────────────────────────────────────────────
+    // SCOPES
+    // ─────────────────────────────────────────────
+
+    public function scopeOverdue($query)
+    {
+        return $query->whereIn('status', ['pending', 'partial'])
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', today());
+    }
+
+    public function scopeExpiringSoon($query, int $days = 7)
+    {
+        return $query->whereIn('status', ['pending', 'partial'])
+            ->whereNotNull('due_date')
+            ->whereBetween('due_date', [today(), today()->addDays($days)]);
+    }
 }

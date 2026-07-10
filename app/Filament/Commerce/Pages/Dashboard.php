@@ -2,6 +2,7 @@
 
 namespace App\Filament\Commerce\Pages;
 
+use App\Filament\Commerce\Widgets\AlertsWidget;
 use App\Filament\Commerce\Widgets\ExpensesWidget;
 use App\Filament\Commerce\Widgets\LowStockWidget;
 use App\Filament\Commerce\Widgets\SalesChartWidget;
@@ -30,11 +31,12 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
-            LowStockWidget::class,      // Stock bas — pleine largeur
-            StatsOverviewWidget::class, // Stats KPI — pleine largeur
+            AlertsWidget::class,        // Alertes crédits en retard / expirant bientôt
+            LowStockWidget::class,
+            StatsOverviewWidget::class,
             SalesChartWidget::class,
-            TopProductsWidget::class,   // Top produits — colonne droite
-            ExpensesWidget::class,      // Graphique — colonne gauche
+            TopProductsWidget::class,
+            ExpensesWidget::class,
         ];
     }
 }
