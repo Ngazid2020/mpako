@@ -361,6 +361,7 @@ Le stock ne descend jamais sous 0.
 |---|---|---|
 | Snapshot | sans `since` (premier démarrage) | tout le référentiel ; achats, dépenses, mouvements de stock, paiements de crédit limités aux **200 plus récents** |
 | Incrémental | `since` fourni | **tout** ce qui a changé depuis `since`, **sans limite** |
+| Allégé | `light=1` (combinable) | sans `sales`, `stock_movements` ni `credit_payments` (renvoyés vides) — utilisé par le mode hors ligne web |
 
 Réponse :
 
@@ -376,6 +377,8 @@ Réponse :
   "stock_movements": [{ "id", "product_id", "product_name", "type", "quantity", "stock_before", "stock_after", "reason", "created_at" }],
   "credit_payments": [{ "id", "credit_id", "amount", "paid_at", "created_at" }],
   "expense_categories": [{ "id", "name" }],
+  "categories": [{ "id", "name" }],
+  "units": [{ "id", "name", "abbreviation" }],
   "synced_at": "2026-11-09T08:00:00.000000Z"
 }
 ```
@@ -422,6 +425,10 @@ Types d'opérations :
 | `pay_supplier` | `update_supplier` ou `update_purchase` | `supplier_id`, `amount`, `paid_at?`, `note?` — FIFO sur achats validés | `{supplier_id, allocations: [{purchase_id, amount}]}` |
 | `complete_purchase` | `update_purchase` | `purchase_id` ou `_local_purchase_rowid` | `{id, status}` (+ `already_done: true` si déjà validé) |
 | `pay_purchase` | `update_purchase` ou `update_supplier` | `purchase_id` ou `_local_purchase_rowid`, `amount`, `paid_at?` — achat validé uniquement, plafonné à la dette | `{id, paid, remaining, status}` ou `{id, already_paid: true}` |
+| `create_product` | `create_product` | `name`, `sell_price`, `buy_price?`, `stock_qty?` (stock initial → mouvement d'entrée), `stock_alert?`, `category_id?`, `unit_id?`, `barcode?`, `description?` | `{id}` |
+| `update_product` | `update_product` | `product_id`, puis les champs modifiés parmi `name`, `sell_price`, `buy_price`, `stock_alert`, `category_id`, `unit_id`, `barcode`, `description`, `is_active`. **Le stock n'est jamais modifié** (passer par `create_stock_adjustment`) ; dernière écriture gagnante | `{id}` |
+| `create_customer` | `create_customer` | `name`, `phone?`, `address?` | `{id}` |
+| `create_supplier` | `create_supplier` | `name`, `phone?`, `address?` | `{id}` |
 
 Réponse (toujours `200`, résultat par opération) :
 
@@ -441,9 +448,23 @@ Réponse (toujours `200`, résultat par opération) :
 - Une opération en échec n'est pas journalisée : elle peut être renvoyée après correction.
 - ⚠️ Le client **ne doit jamais régénérer** un `local_id` pour une même opération.
 
-#### `_local_purchase_rowid`
+#### Références vers des éléments créés hors ligne (`*_local_id`)
 
-Permet à `complete_purchase` / `pay_purchase` de cibler un achat créé hors-ligne **dans le même lot** `push`. D'un lot à l'autre, utiliser l'`id` serveur (`data.id` de `create_purchase`).
+Dans tout payload, et dans les lignes `items[]`, un champ `<x>_local_id` peut remplacer `<x>_id` pour `x` ∈ {`customer`, `supplier`, `product`, `purchase`, `credit`, `sale`}. Sa valeur est le `local_id` de l'opération qui a créé l'élément.
+
+```json
+{ "type": "create_sale", "local_id": "web-…-3", "payload": {
+    "payment_type": "credit", "customer_local_id": "web-…-1",
+    "items": [{ "product_local_id": "web-…-2", "quantity": 4, "unit_price": 500 }] } }
+```
+
+- La résolution s'appuie sur le journal `sync_operations` : elle fonctionne **dans le même lot comme d'un lot à l'autre**.
+- Si l'élément référencé n'a pas encore été synchronisé (sa création a échoué ou n'a pas encore été envoyée), l'opération échoue avec « Élément créé hors ligne pas encore synchronisé (x). ». Rien n'est appliqué, et le client la renvoie au cycle suivant.
+- Si `<x>_id` est déjà renseigné, il est prioritaire.
+
+#### `_local_purchase_rowid` (historique, app mobile)
+
+Permet à `complete_purchase` / `pay_purchase` de cibler un achat créé hors ligne **dans le même lot** `push`. Le mécanisme générique `purchase_local_id` ci-dessus est préférable : il fonctionne aussi d'un lot à l'autre.
 
 #### Messages d'erreur
 
@@ -454,6 +475,19 @@ Permet à `complete_purchase` / `pay_purchase` de cibler un achat créé hors-li
 | Permission | « Action non autorisée pour votre rôle. » |
 | Type inconnu | « Type inconnu : xxx » |
 | Erreur technique | « Erreur serveur lors de la synchronisation. » (détail uniquement dans les logs serveur) |
+| Référence locale non encore créée | « Élément créé hors ligne pas encore synchronisé (x). » — **temporaire**, à renvoyer |
+
+### 6.3 Accès depuis le mode hors ligne web
+
+Le mode hors ligne (`/commerce/{slug}/hors-ligne`) est une page web authentifiée par session. Il obtient un token API propre au poste :
+
+`POST /commerce/{slug}/hors-ligne/token` — session web + CSRF (`X-XSRF-TOKEN` obtenu via `/sanctum/csrf-cookie`), `throttle:10,1`
+
+| Champ | Règles |
+|---|---|
+| `device_id` | requis, string ≤ 64 — identifiant aléatoire du navigateur, conservé en IndexedDB |
+
+Réponse : `{ "token", "expires_at", "user": {id, name}, "permissions": [...] }`. Le token est nommé `web-offline:{shop_id}:{device_id}`, valable **30 jours** et renouvelé 5 jours avant l'expiration ; un nouveau token pour le même poste révoque le précédent. Les appels suivants (`pull`, `push`) utilisent ce token en `Bearer`, comme l'app mobile.
 
 ---
 
@@ -481,3 +515,11 @@ Comportements modifiés au Sprint 1 que l'application mobile doit prendre en com
 | 16 | `/pull` incrémental : plus de limite de 200 lignes ; `synced_at` pris avant les requêtes | Utiliser `synced_at` comme prochain `since` ; dédoublonner par `id` |
 | 17 | `POST /products` : le stock initial crée un mouvement de stock (visible dans `stock_movements`) | — |
 | 18 | Notifications de stock faible envoyées uniquement au **franchissement** du seuil | Moins de notifications push |
+
+### Ajouts du Sprint 2 (non cassants)
+
+| # | Ajout | Intérêt pour `beez-mobile` |
+|---|---|---|
+| 19 | Nouvelles opérations de push : `create_product`, `update_product`, `create_customer`, `create_supplier` | Permet de créer et modifier produits, clients et fournisseurs hors ligne |
+| 20 | Références `*_local_id` (client, fournisseur, produit, achat, crédit, vente) résolues côté serveur, même d'un lot à l'autre | Remplace avantageusement `_local_purchase_rowid` |
+| 21 | `pull` renvoie `categories` et `units` ; paramètre `light=1` | Formulaires produit hors ligne ; premier pull plus léger |

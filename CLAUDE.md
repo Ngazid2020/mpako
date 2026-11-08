@@ -175,6 +175,14 @@ Compte admin par défaut : `admin@beez.km` / `password`
 - **Portefeuille** : le solde ne change que via `Wallet::credit()` / `debit()` (transaction + verrou). Les `WalletTransaction` forment un journal en ajout seul.
 - **Ressources Admin masquées** (`shouldRegisterNavigation = false`) : elles n'existent que pour Shield et utilisent le trait `ShieldOnlyResource`, en lecture seule.
 - **Filament 3** : `readOnly()` n'existe que sur `TextInput`/`Textarea`. Pour un `Select`/`Toggle`, utiliser `disabled()`. C'est `modalHeading()` (pas `modalTitle()`) et `auth()->user()?->can()` (pas `auth()->can()`).
+- **Mode hors ligne web** (`/commerce/{slug}/hors-ligne`, `resources/js/offline/`) : application Alpine autonome. Toute écriture passe par la file d'opérations de la sync (`push`), jamais par un endpoint ad hoc.
+  - Pour une nouvelle action hors ligne, il faut :
+    1. ajouter le type d'opération dans `SyncController` (`OPERATION_PERMISSIONS`, `match`, handler) ;
+    2. ajouter son effet local dans `operations.js` (`handlers`) ;
+    3. l'ajouter à `OPERATION_LABELS` ;
+    4. ajouter un test dans `OfflineModeTest`.
+  - Un élément créé hors ligne se référence par `<x>_local_id`.
+  - Si `public/serviceworker.js` change, incrémenter `CACHE_NAME`.
 - **Méthodologie** : Agile/Scrum. Backlog dans `docs/scrum/PRODUCT-BACKLOG.md`, Definition of Done dans `docs/scrum/SCRUM-GUIDE.md`. Toute nouvelle page Filament s'ajoute à `tests/Feature/FilamentSmokeTest.php`.
 
 ---

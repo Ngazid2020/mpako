@@ -14,7 +14,8 @@
 |---|---|
 | [SCRUM-GUIDE.md](scrum/SCRUM-GUIDE.md) | Rôles, cérémonies, Definition of Ready / Done, estimation, branches |
 | [PRODUCT-BACKLOG.md](scrum/PRODUCT-BACKLOG.md) | Épiques, user stories estimées et priorisées, plan de sprints, questions ouvertes |
-| [SPRINT-01.md](scrum/SPRINT-01.md) | Compte rendu du Sprint 1 (planning, réalisé, review, rétrospective) |
+| [SPRINT-01.md](scrum/SPRINT-01.md) | Compte rendu du Sprint 1 : stabilisation post-audit |
+| [SPRINT-02.md](scrum/SPRINT-02.md) | Compte rendu du Sprint 2 : mode hors ligne de la plateforme web |
 
 ## Ailleurs dans le dépôt
 

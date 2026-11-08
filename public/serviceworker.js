@@ -1,4 +1,4 @@
-var CACHE_NAME = 'beez-v1';
+var CACHE_NAME = 'beez-v2';
 
 var STATIC_ASSETS = [
     '/offline',
@@ -37,41 +37,120 @@ self.addEventListener('activate', function (event) {
     );
 });
 
+// ─────────────────────────────────────────────────────────────
+// Mode hors ligne de la plateforme
+// ─────────────────────────────────────────────────────────────
+// /commerce/{slug}/hors-ligne est une application autonome (Alpine + IndexedDB).
+// On la garde en cache avec ses assets Vite : quand le réseau tombe, toute
+// navigation vers une page du commerce affiche cette application.
+var OFFLINE_APP_RE = /^\/commerce\/([^/]+)\/hors-ligne\/?$/;
+var PANEL_PAGE_RE = /^\/commerce\/([^/]+)(\/|$)/;
+var RESERVED_SLUGS = ['login', 'register', 'pending', 'logout', 'password-reset', 'email-verification'];
+
+function offlineAppPath(slug) {
+    return '/commerce/' + slug + '/hors-ligne';
+}
+
+// Met en cache la page de l'application hors ligne + ses assets /build/assets/*
+function cacheOfflineApp(path, response) {
+    if (!response || !response.ok || response.redirected || response.type !== 'basic') {
+        return Promise.resolve();
+    }
+    return caches.open(CACHE_NAME).then(function (cache) {
+        return response.clone().text().then(function (html) {
+            var assets = html.match(/\/build\/assets\/[^"'\s)<>]+/g) || [];
+            var unique = assets.filter(function (a, i) { return assets.indexOf(a) === i; });
+            return Promise.all([
+                cache.put(path, response.clone()),
+                Promise.all(unique.map(function (asset) {
+                    return cache.match(asset).then(function (hit) {
+                        return hit || fetch(asset).then(function (r) { if (r.ok) return cache.put(asset, r); }).catch(function () {});
+                    });
+                })),
+            ]);
+        });
+    });
+}
+
+// Préchargement demandé par le panel Filament (renderHook « offline-bridge »)
+self.addEventListener('message', function (event) {
+    var data = event.data || {};
+    if (data.type !== 'warm-offline' || !data.url) return;
+    var path = new URL(data.url, location.origin).pathname.replace(/\/$/, '');
+    if (!OFFLINE_APP_RE.test(path)) return;
+    event.waitUntil(
+        fetch(path, { credentials: 'include' })
+            .then(function (response) { return cacheOfflineApp(path, response); })
+            .catch(function () {})
+    );
+});
+
 // Stratégie réseau :
-//   - Navigation  → network-first, fallback page offline
-//   - Icons/splash → cache-first
-//   - Tout le reste → network-only (pages Livewire, API)
+//   - Assets Vite (/build/assets, noms hachés) → cache-first
+//   - Icônes → cache-first
+//   - Application hors ligne → network-first, mise en cache, fallback cache
+//   - Autres pages du commerce → network-first, fallback application hors ligne
+//   - Tout le reste → network-only (Livewire, API)
 self.addEventListener('fetch', function (event) {
     var request = event.request;
 
     // Ignorer les requêtes non-GET et cross-origin
     if (request.method !== 'GET') return;
+    var url;
     try {
-        var url = new URL(request.url);
+        url = new URL(request.url);
         if (url.origin !== location.origin) return;
     } catch (e) {
         return;
     }
 
-    // Assets statiques (icônes) : cache-first
-    if (request.url.includes('/images/icons/')) {
+    // Assets compilés (hash dans le nom) et icônes : cache-first
+    if (url.pathname.indexOf('/build/assets/') === 0 || url.pathname.indexOf('/images/icons/') === 0) {
         event.respondWith(
             caches.match(request).then(function (cached) {
-                return cached || fetch(request);
+                if (cached) return cached;
+                return fetch(request).then(function (response) {
+                    if (response.ok && url.pathname.indexOf('/build/assets/') === 0) {
+                        var copy = response.clone();
+                        caches.open(CACHE_NAME).then(function (cache) { cache.put(url.pathname, copy); });
+                    }
+                    return response;
+                });
             })
         );
         return;
     }
 
-    // Navigation : network-first, page offline en fallback
-    if (request.mode === 'navigate') {
+    if (request.mode !== 'navigate') return;
+
+    var path = url.pathname.replace(/\/$/, '');
+
+    // Application hors ligne elle-même
+    if (OFFLINE_APP_RE.test(path)) {
         event.respondWith(
-            fetch(request).catch(function () {
-                return caches.match('/offline');
+            fetch(request).then(function (response) {
+                event.waitUntil(cacheOfflineApp(path, response));
+                return response;
+            }).catch(function () {
+                return caches.match(path).then(function (cached) {
+                    return cached || caches.match('/offline');
+                });
             })
         );
         return;
     }
+
+    // Autres navigations : réseau, sinon application hors ligne du commerce visité
+    event.respondWith(
+        fetch(request).catch(function () {
+            var match = path.match(PANEL_PAGE_RE);
+            var slug = match && RESERVED_SLUGS.indexOf(match[1]) === -1 ? match[1] : null;
+            var fallback = slug ? caches.match(offlineAppPath(slug)) : Promise.resolve(null);
+            return fallback.then(function (cached) {
+                return cached || caches.match('/offline');
+            });
+        })
+    );
 });
 
 // ── Push notifications ──

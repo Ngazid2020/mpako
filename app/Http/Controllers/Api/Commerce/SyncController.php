@@ -24,6 +24,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class SyncController extends Controller
@@ -147,6 +148,10 @@ class SyncController extends Controller
                 'created_at' => $cp->created_at,
             ]);
 
+        // `?light=1` (mode hors ligne web) : sans l'historique volumineux
+        // (ventes, mouvements de stock, paiements de crédit), inutile pour travailler hors ligne.
+        $light = $request->boolean('light');
+
         return response()->json([
             'products'        => ProductResource::collection(
                 $query('products')->with('unit')->get()
@@ -157,17 +162,25 @@ class SyncController extends Controller
             'credits'         => CreditResource::collection(
                 $query('credits')->get()
             ),
-            'sales'           => SaleResource::collection(
+            'sales'           => $light ? [] : SaleResource::collection(
                 $query('sales')->with('items')->get()
             ),
             'suppliers'          => $suppliers,
             'purchases'          => $purchases,
             'expenses'           => $expenses,
-            'stock_movements'    => $stockMovements,
-            'credit_payments'    => $creditPayments,
+            'stock_movements'    => $light ? [] : $stockMovements,
+            'credit_payments'    => $light ? [] : $creditPayments,
             'expense_categories' => $shop->expenseCategories()
                 ->get()
                 ->map(fn($ec) => ['id' => $ec->id, 'name' => $ec->name]),
+            'categories'         => $shop->categories()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn($c) => ['id' => $c->id, 'name' => $c->name]),
+            'units'              => $shop->units()
+                ->orderBy('name')
+                ->get(['id', 'name', 'abbreviation'])
+                ->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'abbreviation' => $u->abbreviation]),
             'synced_at'          => $syncedAt,
         ]);
     }
@@ -186,7 +199,18 @@ class SyncController extends Controller
         'pay_supplier'            => ['update_supplier', 'update_purchase'],
         'complete_purchase'       => ['update_purchase'],
         'pay_purchase'            => ['update_purchase', 'update_supplier'],
+        'create_product'          => ['create_product'],
+        'update_product'          => ['update_product'],
+        'create_customer'         => ['create_customer'],
+        'create_supplier'         => ['create_supplier'],
     ];
+
+    /**
+     * Champs de payload pouvant référencer un élément créé hors ligne via son local_id :
+     * `<champ>_local_id` est résolu en `<champ>_id` à partir du journal sync_operations
+     * (persistant : fonctionne aussi d'un lot de sync à l'autre).
+     */
+    private const LOCAL_REFERENCES = ['customer', 'supplier', 'product', 'purchase', 'credit', 'sale'];
 
     /**
      * Sync montante — reçoit un tableau d'opérations offline et les exécute dans l'ordre.
@@ -241,6 +265,9 @@ class SyncController extends Controller
                     // Snapshot du mapping au moment de l'exécution (passé par valeur dans la closure)
                     $idMap = $rowIdToServerId;
 
+                    // Références vers des éléments créés hors ligne (`customer_local_id`…)
+                    $op['payload'] = $this->resolveLocalReferences($op['payload'], $shop);
+
                     $result = DB::transaction(function () use ($op, $shop, $user, $idMap) {
                         $result = match ($op['type']) {
                             'create_sale'             => $this->createSale($op, $shop, $user),
@@ -252,6 +279,10 @@ class SyncController extends Controller
                             'pay_supplier'            => $this->paySupplier($op, $shop, $user),
                             'complete_purchase'       => $this->completePurchase($op, $shop, $idMap),
                             'pay_purchase'            => $this->payPurchase($op, $shop, $user, $idMap),
+                            'create_product'          => $this->createProduct($op, $shop, $user),
+                            'update_product'          => $this->updateProduct($op, $shop),
+                            'create_customer'         => $this->createCustomer($op, $shop),
+                            'create_supplier'         => $this->createSupplier($op, $shop),
                         };
 
                         // Journalisé dans la même transaction : soit tout est appliqué, soit rien
@@ -317,7 +348,137 @@ class SyncController extends Controller
         return 'Erreur serveur lors de la synchronisation.';
     }
 
+    /**
+     * Remplace récursivement `<x>_local_id` par `<x>_id` (lignes d'articles comprises)
+     * en lisant le résultat de l'opération de création correspondante.
+     * Si la création n'a pas encore été synchronisée, l'opération échoue proprement
+     * et sera retentée par le client au prochain cycle.
+     */
+    private function resolveLocalReferences(array $payload, $shop): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->resolveLocalReferences($value, $shop);
+                continue;
+            }
+
+            if (! is_string($key) || ! str_ends_with($key, '_local_id') || $value === null || $value === '') {
+                continue;
+            }
+
+            $base = substr($key, 0, -strlen('_local_id'));
+
+            if (! in_array($base, self::LOCAL_REFERENCES, true) || ! empty($payload["{$base}_id"])) {
+                continue;
+            }
+
+            $created = SyncOperation::where('shop_id', $shop->id)->where('local_id', (string) $value)->first();
+
+            if (! $created || empty($created->result['id'])) {
+                throw new \RuntimeException("Élément créé hors ligne pas encore synchronisé ({$base}).");
+            }
+
+            $payload["{$base}_id"] = (int) $created->result['id'];
+        }
+
+        return $payload;
+    }
+
     // ─── Handlers individuels ───────────────────────────────────────────
+
+    private function createProduct(array $op, $shop, $user): array
+    {
+        $data = Validator::make($op['payload'], [
+            'name'        => 'required|string|max:255',
+            'sell_price'  => 'required|numeric|min:0',
+            'buy_price'   => 'nullable|numeric|min:0',
+            'barcode'     => 'nullable|string|max:255',
+            'stock_qty'   => 'nullable|numeric|min:0',
+            'stock_alert' => 'nullable|numeric|min:0',
+            'description' => 'nullable|string',
+            'unit_id'     => ['nullable', 'integer', $this->inShop('units', $shop)],
+            'category_id' => ['nullable', 'integer', $this->inShop('categories', $shop)],
+        ])->validate();
+
+        $product = $shop->products()->create([
+            'name'        => $data['name'],
+            'sell_price'  => $data['sell_price'],
+            'buy_price'   => $data['buy_price'] ?? 0,
+            'barcode'     => $data['barcode'] ?? null,
+            'stock_qty'   => 0,
+            'stock_alert' => $data['stock_alert'] ?? 0,
+            'description' => $data['description'] ?? null,
+            'unit_id'     => $data['unit_id'] ?? null,
+            'category_id' => $data['category_id'] ?? null,
+            'is_active'   => true,
+        ]);
+
+        // Stock initial tracé par un mouvement (l'observer met stock_qty à jour)
+        if (($data['stock_qty'] ?? 0) > 0) {
+            StockMovement::create([
+                'shop_id'    => $shop->id,
+                'product_id' => $product->id,
+                'user_id'    => $user->id,
+                'type'       => 'in',
+                'quantity'   => $data['stock_qty'],
+                'reason'     => 'Stock initial (hors ligne)',
+            ]);
+        }
+
+        return ['id' => $product->id];
+    }
+
+    /**
+     * Modification d'une fiche produit (dernière écriture gagnante).
+     * Le stock n'est JAMAIS modifié ici : il passe par create_stock_adjustment (traçabilité).
+     */
+    private function updateProduct(array $op, $shop): array
+    {
+        $payload = $op['payload'];
+        $product = $shop->products()->findOrFail($payload['product_id'] ?? 0);
+
+        $data = Validator::make($payload, [
+            'name'        => 'sometimes|required|string|max:255',
+            'sell_price'  => 'sometimes|required|numeric|min:0',
+            'buy_price'   => 'sometimes|nullable|numeric|min:0',
+            'barcode'     => 'sometimes|nullable|string|max:255',
+            'stock_alert' => 'sometimes|nullable|numeric|min:0',
+            'description' => 'sometimes|nullable|string',
+            'is_active'   => 'sometimes|boolean',
+            'unit_id'     => ['sometimes', 'nullable', 'integer', $this->inShop('units', $shop)],
+            'category_id' => ['sometimes', 'nullable', 'integer', $this->inShop('categories', $shop)],
+        ])->validate();
+
+        $product->update($data);
+
+        return ['id' => $product->id];
+    }
+
+    private function createCustomer(array $op, $shop): array
+    {
+        $data = Validator::make($op['payload'], [
+            'name'    => 'required|string|max:255',
+            'phone'   => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+        ])->validate();
+
+        $customer = $shop->customers()->create($data + ['balance' => 0, 'is_active' => true]);
+
+        return ['id' => $customer->id];
+    }
+
+    private function createSupplier(array $op, $shop): array
+    {
+        $data = Validator::make($op['payload'], [
+            'name'    => 'required|string|max:255',
+            'phone'   => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+        ])->validate();
+
+        $supplier = $shop->suppliers()->create($data + ['balance' => 0, 'is_active' => true]);
+
+        return ['id' => $supplier->id];
+    }
 
     private function createSale(array $op, $shop, $user): array
     {

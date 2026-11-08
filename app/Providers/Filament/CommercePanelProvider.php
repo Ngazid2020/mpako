@@ -4,7 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Filament\Commerce\Pages\Dashboard;
 use App\Models\Shop;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
+use Filament\Navigation\NavigationItem;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
@@ -106,6 +108,20 @@ class CommercePanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn(): string => Auth::check() ? Blade::render('@include("filament.components.mobile-bottom-nav")') : ''
             )
+            // Mode hors ligne : préchargement + bannière de bascule quand la connexion tombe
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => Auth::check() && Filament::getTenant()
+                    ? Blade::render('@include("filament.components.offline-bridge", ["shop" => $shop])', ['shop' => Filament::getTenant()])
+                    : ''
+            )
+            ->navigationItems([
+                NavigationItem::make('Mode hors ligne')
+                    ->icon('heroicon-o-signal-slash')
+                    ->url(fn(): string => route('commerce.offline', ['shop' => Filament::getTenant()?->slug ?? '']))
+                    ->visible(fn(): bool => Filament::getTenant() !== null)
+                    ->sort(2),
+            ])
         ;
     }
 }

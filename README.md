@@ -7,6 +7,7 @@ BeeZ (nom de code du dépôt : **mpako**) est un ERP de gestion commerciale mult
   - `/commerce/{slug}` : commerçants, multi-tenant par commerce ;
   - `/admin` : super-admin BeeZ.
 - **API mobile** : `/api`, avec authentification par token Sanctum (30 jours) et synchronisation offline `pull`/`push`.
+- **Mode hors ligne web** : `/commerce/{slug}/hors-ligne`. Caisse, produits, stock, clients, achats, fournisseurs et dépenses restent utilisables sans connexion, puis se synchronisent automatiquement au retour du réseau. Il faut HTTPS en production, et l'avoir ouvert une fois en ligne sur l'appareil.
 
 ## Démarrage rapide
 
@@ -22,7 +23,7 @@ php artisan db:seed --class=ShopRolesSeeder        # rôles owner / manager / ca
 php artisan db:seed --class=BeezSeeder             # (optionnel) données de démo : commerçant +2699000001 / password
 
 php artisan serve
-npm run dev
+npm run dev        # pour tester le mode hors ligne, utiliser plutôt `npm run build` (assets mis en cache)
 ```
 
 > L'ordre compte : `BeezSeeder` a besoin des rôles, qui ont eux-mêmes besoin des permissions.
@@ -50,7 +51,7 @@ L'index complet est dans [`docs/`](docs/README.md) :
 - [Architecture](docs/03-ARCHITECTURE.md)
 - [API mobile](docs/04-API.md)
 - [Rapport d'audit](docs/05-AUDIT-2026-11.md)
-- Scrum : [cadre](docs/scrum/SCRUM-GUIDE.md), [backlog](docs/scrum/PRODUCT-BACKLOG.md), [sprints](docs/scrum/SPRINT-01.md)
+- Scrum : [cadre](docs/scrum/SCRUM-GUIDE.md), [backlog](docs/scrum/PRODUCT-BACKLOG.md), sprints [1](docs/scrum/SPRINT-01.md) et [2](docs/scrum/SPRINT-02.md)
 - [CHANGELOG](CHANGELOG.md)
 
 ## Conventions essentielles

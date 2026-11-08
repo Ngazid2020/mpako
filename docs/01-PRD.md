@@ -126,7 +126,7 @@ Principes directeurs :
 
 | ID | Exigence | Priorité | Statut |
 |---|---|---|---|
-| FR-VEN-01 | Encaisser une vente depuis la page **Caisse** (« Boutique ») : recherche par nom ou code-barres, panier, quantité, montant reçu, monnaie rendue | Must | Livré |
+| FR-VEN-01 | Encaisser une vente depuis la page **Caisse** (« Boutique ») : liste des produits actifs **affichée dès l'ouverture** (en stock d'abord, puis par ordre alphabétique, 60 au maximum), filtrée par la recherche (nom ou code-barres), panier, quantité, montant reçu, monnaie rendue | Must | Livré |
 | FR-VEN-02 | Ajout automatique au panier lors d'un scan de code-barres exact (caméra) | Should | Livré |
 | FR-VEN-03 | Remise par ligne en **%** (plafonnée à 100 %) ou **montant fixe** (plafonné au sous-total) | Should | Livré |
 | FR-VEN-04 | Les prix et totaux sont **recalculés côté serveur** à partir des prix en base avant encaissement (le panier navigateur n'est pas cru) | Must | Livré |
@@ -242,9 +242,31 @@ Principes directeurs :
 | FR-API-07 | Toute référence (produit, client, fournisseur, catégorie, vente) envoyée par le mobile est vérifiée comme appartenant au commerce | Must | Livré |
 | FR-API-08 | Les erreurs renvoyées au mobile sont métier et lisibles, jamais techniques (SQL, pile) | Must | Livré |
 | FR-API-09 | Pagination par curseur du snapshot initial (gros historiques) | Should | À venir |
-| FR-API-10 | Résolution d'un achat créé hors-ligne référencé dans un lot de sync ultérieur | Could | À venir |
+| FR-API-10 | Résolution d'un élément créé hors ligne (client, fournisseur, produit, achat) référencé par son `local_id`, y compris dans un lot de sync ultérieur | Should | Livré |
 
 Détail des endpoints : voir [04-API.md](04-API.md).
+
+### 6.10 bis Mode hors ligne de la plateforme web (OFF)
+
+Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travailler sans connexion, la plateforme embarque une **application hors ligne** : `/commerce/{slug}/hors-ligne`. Elle est mise en cache par le service worker, stocke ses données dans le navigateur (IndexedDB) et réutilise la synchronisation de l'API mobile.
+
+| ID | Exigence | Priorité | Statut |
+|---|---|---|---|
+| FR-OFF-01 | Le propriétaire (et tout membre autorisé) peut ouvrir le mode hors ligne depuis le menu « Mode hors ligne » ; quand la connexion tombe sur une page du panel, une bannière propose d'y basculer | Must | Livré |
+| FR-OFF-02 | Sans réseau, toute navigation vers une page du commerce affiche l'application hors ligne mise en cache (préchargée automatiquement depuis le panel) | Must | Livré |
+| FR-OFF-03 | Hors ligne : **caisse** (comptant et crédit, remises), **produits** (création, modification, entrée/sortie/inventaire de stock), **clients** (création, remboursement de crédit), **achats** (création, validation, paiement), **fournisseurs** (création, paiement), **dépenses** | Must | Livré |
+| FR-OFF-04 | Chaque opération est enregistrée localement et son effet est visible immédiatement (stock, dettes) | Must | Livré |
+| FR-OFF-05 | **Synchronisation automatique** au retour de la connexion (et toutes les 30 s en ligne), sans doublon (idempotence par `local_id`), suivie d'un rechargement des données serveur | Must | Livré |
+| FR-OFF-06 | Les éléments créés hors ligne peuvent être utilisés immédiatement hors ligne (vendre un produit, ou faire crédit à un client, créés sans réseau) | Must | Livré |
+| FR-OFF-07 | Les opérations refusées par le serveur (permission, donnée invalide) sont listées avec leur motif, avec les actions « Réessayer » et « Abandonner » | Must | Livré |
+| FR-OFF-08 | Les actions proposées respectent le rôle de l'utilisateur ; le serveur revérifie chaque permission | Must | Livré |
+| FR-OFF-09 | Poste partagé : effacement des données locales et révocation de l'accès du poste | Should | Livré |
+| FR-OFF-10 | Consultation hors ligne de l'historique des ventes et des rapports | Could | À venir |
+| FR-OFF-11 | Annulation d'achat, suppression et modifications avancées hors ligne | Could | À venir |
+
+**Pré-requis :**
+- ouvrir le mode hors ligne (ou n'importe quelle page du panel) **au moins une fois avec une connexion** sur l'appareil, pour préparer le cache et les données ;
+- le service worker exige HTTPS en production (ou `localhost` en développement).
 
 ### 6.11 Notifications et alertes (NOT)
 
@@ -325,6 +347,13 @@ Détail des endpoints : voir [04-API.md](04-API.md).
 2. Les opérations sont stockées localement (SQLite) avec un identifiant local unique.
 3. Au retour du réseau, l'application pousse la file ; le serveur applique chaque opération une seule fois, même si l'envoi est répété.
 4. L'application tire les données à jour (stock, soldes) depuis la dernière synchronisation.
+
+### 8.4 bis Journée hors ligne sur la plateforme web (propriétaire)
+
+1. Mariama travaille sur la plateforme depuis le navigateur de son téléphone. Le réseau tombe : une bannière « Connexion perdue — Continuer en mode hors ligne » apparaît.
+2. Elle passe en mode hors ligne. Elle crée un nouveau produit, encaisse des ventes, fait crédit à un nouveau client, enregistre une livraison fournisseur et une dépense. Le stock et les dettes se mettent à jour à l'écran ; un compteur indique les opérations en attente.
+3. Le réseau revient : la file est envoyée automatiquement, puis les données sont rechargées depuis le serveur. Une opération refusée (droits insuffisants, par exemple) reste visible dans l'onglet « Sync » avec son motif.
+4. Elle revient à la plateforme habituelle : tout y figure.
 
 ### 8.5 Recharge et abonnement (super-admin)
 
@@ -411,10 +440,11 @@ Détail des endpoints : voir [04-API.md](04-API.md).
 |---|---|---|
 | **R0 — Socle** | Caisse, stock, achats, crédits, dépenses, rapports, PWA, API & sync offline | Livré |
 | **R1 — Stabilisation** (Sprint 1) | Correction de l'audit : isolation multi-tenant, permissions API, idempotence sync, cohérence des soldes, sécurisation caisse, module wallet sans crash, 28 tests automatisés | Livré (9/11/2026) |
+| **R1.1 — Mode hors ligne web** (Sprint 2) | Application hors ligne de la plateforme (caisse, produits, stock, clients et crédits, achats, fournisseurs, dépenses), synchronisation automatique, références entre éléments créés hors ligne ; liste des produits dès l'ouverture de la caisse | Livré (9/11/2026) |
 | **R2 — Sécurité des rôles** | Rôles par commerce, rôle `owner` à la création, gestion des employés dans le panel commerce | À venir |
 | **R3 — Monétisation** | Portefeuille automatique, abonnement débité, expiration et période de grâce, limites par forfait | À venir |
 | **R4 — Fiabilité financière** | Coût historique par ligne de vente, résultat net sur marge, annulation de vente, désactivation produit | À venir |
-| **R5 — Mobile robuste** | Pagination du pull, résolution d'achats inter-lots, contrôles de cohérence | À venir |
+| **R5 — Mobile robuste** | Pagination du pull, contrôles de cohérence | À venir |
 | **R6 — Production** | CI, sauvegardes, supervision, durcissement, documentation d'exploitation | À venir |
 
 Le détail (user stories, estimations, sprints) est tenu dans le [Product Backlog](scrum/PRODUCT-BACKLOG.md).

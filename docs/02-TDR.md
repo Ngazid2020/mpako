@@ -87,6 +87,7 @@ Mettre à la disposition des commerçants comoriens une plateforme de gestion co
 | R6 | Chaque modification est testée automatiquement | Pipeline CI vert obligatoire avant fusion |
 | R7 | La plateforme est en production | URL publique, HTTPS, sauvegardes quotidiennes, restauration testée, supervision active |
 | R8 | La documentation est à jour | PRD, architecture, API, guide d'exploitation, guide utilisateur |
+| R9 | Le commerçant travaille sur la plateforme sans connexion | En recette, réseau coupé : vente, produit, achat et dépense enregistrés ; au retour du réseau, tout est synchronisé sans doublon ni perte (réalisé au Sprint 2, test navigateur automatisé prévu avec US-705) |
 
 ---
 
@@ -94,7 +95,7 @@ Mettre à la disposition des commerçants comoriens une plateforme de gestion co
 
 ### 4.1 Prestations incluses
 
-1. **Développement** des fonctionnalités et correctifs du [Product Backlog](scrum/PRODUCT-BACKLOG.md) (épics EPIC-1 à EPIC-6 ci-dessous).
+1. **Développement** des fonctionnalités et correctifs du [Product Backlog](scrum/PRODUCT-BACKLOG.md) (épics EPIC-1 à EPIC-7 ci-dessous).
 2. **Tests** : tests unitaires et fonctionnels automatisés, tests de non-régression, recette fonctionnelle avec des commerçants pilotes.
 3. **Adaptation de l'application mobile** `beez-mobile` aux évolutions de l'API (permissions, idempotence, pagination).
 4. **Mise en place de l'intégration continue** et des environnements (développement, recette, production).
@@ -122,6 +123,7 @@ Les identifiants d'épics sont ceux du [Product Backlog](scrum/PRODUCT-BACKLOG.m
 | EPIC-4 | Sync et API mobile | FR-API-09, FR-API-10 |
 | EPIC-5 | Abonnements et portefeuille | FR-ABO-05 à FR-ABO-10 |
 | EPIC-6 | Qualité, DevOps et mise en production | NFR-09, NFR-13, NFR-14 |
+| EPIC-7 | Mode hors ligne de la plateforme web | FR-OFF-01 à FR-OFF-11 |
 
 ---
 
@@ -231,12 +233,13 @@ Démarrage : semaine du 9 novembre 2026. Les dates sont indicatives et seront aj
 | Sprint | Période indicative | Objectif de sprint | Épics | Jalon |
 |---|---|---|---|---|
 | **S1** | jusqu'au 9 nov. 2026 | Stabilisation post-audit : isolation multi-tenant, permissions API, idempotence sync, cohérence des soldes, sécurisation caisse, module portefeuille sans plantage, 28 tests | — | **Réalisé** |
-| **S2** | 9 nov. → 23 nov. 2026 | Rôles par commerce (US-101), rôle `owner` à la création (US-102), app mobile alignée sur l'API (US-406), CI (US-601) | EPIC-1, 4, 6 | J1 : sécurité des rôles |
-| **S3** | 23 nov. → 7 déc. 2026 | Portefeuille automatique, souscription par débit, accès conditionné à l'abonnement (US-501 à 503, 507), scope tenant global (US-104) | EPIC-5, 1 | J2 : monétisation |
-| **S4** | 7 déc. → 21 déc. 2026 | Coût historique et bénéfice sur marge (US-301, 302), archivage sans perte d'historique (US-201) | EPIC-3, 2 | J3 : fiabilité financière |
-| **S5** | 4 janv. → 18 janv. 2027 | Pull paginé (US-401), limites de débit et purge tokens (US-403), login durci (US-404), notifications en file (US-603), renouvellement auto (US-504) | EPIC-4, 5, 6 | J4 : recette pilotes |
-| **S6** | 18 janv. → 1er fév. 2027 | Références sans collision, politique de survente, annulation de vente, tests caisse et rapports (US-202 à 204, US-602) | EPIC-2, 6 | — |
-| **S7** | 1er fév. → 15 fév. 2027 | Durcissement production (US-605 : sauvegardes, supervision), formation, recette finale ; évolutions « Could » selon la vélocité | EPIC-6 | **J5 : mise en production** |
+| **S2** | 9 nov. 2026 | Mode hors ligne de la plateforme web : caisse, produits, stock, clients, achats, fournisseurs, dépenses hors connexion, synchronisation automatique (US-701 à 704, US-402) | EPIC-7 | **Réalisé** |
+| **S3** | 9 nov. → 23 nov. 2026 | Rôles par commerce (US-101), rôle `owner` à la création (US-102), app mobile alignée sur l'API (US-406), CI (US-601) | EPIC-1, 4, 6 | J1 : sécurité des rôles |
+| **S4** | 23 nov. → 7 déc. 2026 | Portefeuille automatique, souscription par débit, accès conditionné à l'abonnement (US-501 à 503, 507), scope tenant global (US-104) | EPIC-5, 1 | J2 : monétisation |
+| **S5** | 7 déc. → 21 déc. 2026 | Coût historique et bénéfice sur marge (US-301, 302), archivage sans perte d'historique (US-201) | EPIC-3, 2 | J3 : fiabilité financière |
+| **S6** | 4 janv. → 18 janv. 2027 | Pull paginé et resynchronisation incrémentale web (US-401, 708), limites de débit et purge tokens (US-403), login durci (US-404), notifications en file (US-603) | EPIC-4, 6, 7 | J4 : recette pilotes |
+| **S7** | 18 janv. → 1er fév. 2027 | Références sans collision, politique de survente, annulation de vente, tests navigateur du mode hors ligne (US-202 à 204, US-705) | EPIC-2, 7 | — |
+| **S8** | 1er fév. → 15 fév. 2027 | Durcissement production (US-605 : sauvegardes, supervision, HTTPS), formation, recette finale ; évolutions « Could » selon la vélocité | EPIC-6 | **J5 : mise en production** |
 
 Une pause est prévue sur la période des fêtes de fin d'année (22 déc. 2026 → 3 janv. 2027).
 

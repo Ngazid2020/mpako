@@ -405,6 +405,59 @@ sequenceDiagram
 
 `EditPurchase` applique le même principe (`mutateFormDataBeforeSave` / `afterSave`). Côté sync, `createPurchase` crée en `pending`, insère les lignes puis valide.
 
+### 7.5 Mode hors ligne de la plateforme web
+
+Le panel Filament repose sur Livewire : chaque interaction est un aller-retour serveur, donc il ne peut pas fonctionner sans réseau. Le mode hors ligne est une **application autonome** servie par Laravel et mise en cache par le service worker. Elle réutilise **exactement le protocole de sync de l'app mobile** (`pull` / `push` idempotent).
+
+| Composant | Fichier | Rôle |
+|---|---|---|
+| Page | `routes/web.php` → `Commerce\OfflineController@show`, vue `resources/views/offline/app.blade.php` | `/commerce/{slug}/hors-ligne` (session web, membre approuvé du commerce) |
+| Token du poste | `OfflineController@token` | Token Sanctum `web-offline:{shop}:{device}` (30 jours), stocké en IndexedDB |
+| Interface | `resources/js/offline/app.js` (Alpine.js) | Caisse, produits, stock, clients et crédits, achats, fournisseurs, dépenses, sync |
+| Effets locaux | `resources/js/offline/operations.js` | État affiché = **snapshot serveur + rejeu de la file** d'opérations en attente |
+| Synchronisation | `resources/js/offline/sync.js` | Push de la file, puis `pull?light=1` qui devient le nouveau snapshot |
+| Stockage | `resources/js/offline/db.js` | IndexedDB `beez-offline`, clés préfixées `{slug}:{userId}` |
+| Cache | `public/serviceworker.js` (`beez-v2`) | Page et assets `/build/assets/*` en cache ; sans réseau, toute page `/commerce/{slug}/…` affiche l'application hors ligne |
+| Pont avec le panel | `filament/components/offline-bridge.blade.php` + entrée de menu « Mode hors ligne » | Préchargement du cache (au plus toutes les 30 min), bannière « Connexion perdue » |
+
+```mermaid
+sequenceDiagram
+    participant U as Utilisateur
+    participant SW as Service worker
+    participant APP as App hors ligne (Alpine)
+    participant IDB as IndexedDB
+    participant API as API /shop/{slug}
+    U->>SW: navigation /commerce/{slug}/… (réseau coupé)
+    SW-->>U: app hors ligne (cache)
+    U->>APP: vente, nouveau produit, paiement…
+    APP->>IDB: file += {type, local_id, payload}
+    APP-->>U: effet visible (rejeu local)
+    Note over APP: événement « online » ou minuterie 30 s
+    APP->>API: POST /push (file)
+    API-->>APP: résultats par local_id
+    APP->>IDB: retire les « synced », marque les refus
+    APP->>API: GET /pull?light=1
+    API-->>APP: snapshot
+    APP->>IDB: snapshot ; état = snapshot + file restante
+```
+
+**Règles de conception**
+- **Le serveur reste la source de vérité.** Le rejeu local n'est qu'un affichage. Après chaque synchronisation, l'état est reconstruit à partir du snapshot serveur.
+- **Références croisées.** Un élément créé hors ligne n'a pas d'`id`. Les opérations suivantes le désignent par `<x>_local_id`, que le serveur résout via `sync_operations` (voir [04-API.md § 6.2](04-API.md)).
+- **Erreurs.** Une opération refusée définitivement (permission, validation) passe en `error`. Elle n'est plus rejouée localement et reste visible dans l'onglet Sync (« Réessayer » / « Abandonner »). Une référence non encore synchronisée reste `pending` et est retentée.
+- **Conflits.**
+  - Le stock est additif (mouvements) : pas de conflit.
+  - Les fiches produit suivent la règle « dernière écriture gagnante ».
+  - Une vente hors ligne n'est jamais refusée pour stock insuffisant (`strictStock: false`), puisqu'elle a eu lieu physiquement.
+- **Sécurité.**
+  - Les données du commerce sont stockées en clair dans le navigateur.
+  - L'onglet Sync propose « Effacer les données de ce poste », qui révoque aussi le token.
+  - Les permissions affichées servent seulement à masquer des actions ; le serveur revérifie tout.
+- **Limites.**
+  - Il faut une première ouverture en ligne par appareil.
+  - Il faut HTTPS en production.
+  - Avec `npm run dev`, les assets viennent du serveur Vite et ne sont pas mis en cache : tester le mode hors ligne avec `npm run build`.
+
 ---
 
 ## 8. Transactions et concurrence
@@ -496,6 +549,8 @@ En production : cron `* * * * * php artisan schedule:run` et un worker `php arti
 | `tests/Feature/Api/CommerceApiTest` | Totaux serveur, isolation tenant, stock agrégé, crédit, permissions, flux achat/paiement, FIFO fournisseur, compte non approuvé |
 | `tests/Feature/Api/SyncPushTest` | Idempotence, cross-tenant, permissions, achat poussé validé |
 | `tests/Feature/FilamentSmokeTest` | Chargement des pages admin et commerce clés |
+| `tests/Feature/OfflineModeTest` | Page hors ligne (accès), token par poste, `pull?light=1`, création hors ligne de produits, clients et fournisseurs, références `*_local_id` dans un même lot et d'un lot à l'autre, `update_product` sans effet sur le stock |
+| `tests/Feature/CaisseProductListTest` | Liste des produits affichée dès l'ouverture de la caisse, filtrage par la recherche |
 | `tests/Feature/Concerns/BuildsShopFixtures` | Fabrique de données de test |
 
 ---
@@ -538,6 +593,8 @@ npm run dev
 ### Production
 
 - `APP_DEBUG=false`, MySQL, `php artisan migrate --force`, `php artisan optimize`, `npm run build`.
+- **HTTPS obligatoire** : sans HTTPS, ni le service worker ni le mode hors ligne ne fonctionnent.
+- Après chaque déploiement qui modifie `public/serviceworker.js`, incrémenter `CACHE_NAME` (`beez-vN`) pour forcer le renouvellement du cache.
 - Cron du scheduler + worker de queue.
 - Clés VAPID (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`) pour les notifications push.
 - Planifier `php artisan sanctum:prune-expired --hours=24` (backlog : purge des tokens expirés).
@@ -553,6 +610,7 @@ Voir le [Product Backlog](scrum/PRODUCT-BACKLOG.md) pour le détail et la priori
 3. Génération des références non sûre en concurrence.
 4. Suppression d'un produit en cascade sur `sale_items` / `purchase_items` / `stock_movements` (historique perdu) → désactivation / soft delete.
 5. `credits.sale_id` en `cascadeOnDelete` : la suppression d'une vente efface le crédit sans passer par l'observer.
-6. Pull de sync : snapshot initial sans pagination (historique complet des ventes).
+6. Pull de sync : snapshot initial sans pagination (historique complet des ventes). Le mode web utilise `light=1`, mais recharge le snapshot complet après chaque synchronisation.
+9. Mode hors ligne web : aucun test navigateur de bout en bout (Playwright/Dusk). Les données locales ne sont pas chiffrées.
 7. Module abonnements incomplet (débit, expiration, blocage).
 8. Stock plancher à 0 masquant les survente (décision métier à confirmer).

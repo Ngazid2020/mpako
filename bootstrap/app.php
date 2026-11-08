@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         // $middleware->trustProxies(at: '*');
+
+        // Pas de route nommée `login` : les invités (routes web hors panels Filament,
+        // ex. mode hors ligne, PDF) sont renvoyés vers la connexion du panel Commerce.
+        $middleware->redirectGuestsTo('/commerce/login');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

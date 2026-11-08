@@ -2,6 +2,36 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les identifiants (`A01`, `D02`…) renvoient au [rapport d'audit](docs/05-AUDIT-2026-11.md).
 
+## [Non publié] — Sprint 2 « Mode hors ligne web » (2026-11-09)
+
+### ⚠️ À faire au déploiement
+- `npm run build`, car de nouveaux assets sont ajoutés (`resources/css/offline.css`, `resources/js/offline/app.js`).
+- HTTPS obligatoire en production pour le service worker.
+- Le service worker passe en `beez-v2` : l'ancien cache est purgé automatiquement.
+
+### Ajouté
+- **Mode hors ligne de la plateforme** (`/commerce/{slug}/hors-ligne`), application autonome Alpine.js + IndexedDB mise en cache par le service worker. Fonctions disponibles sans connexion :
+  - caisse : comptant, crédit, remises ;
+  - produits : création, modification, entrée, sortie et inventaire de stock ;
+  - clients et remboursements de crédit ;
+  - achats : création, validation, paiement ;
+  - fournisseurs : création, paiement ;
+  - dépenses.
+- Synchronisation automatique au retour du réseau (et toutes les 30 s), file d'opérations avec effets visibles immédiatement, onglet « Sync » (opérations refusées avec motif, Réessayer / Abandonner, effacement des données du poste).
+- Entrée de menu « Mode hors ligne » et bannière « Connexion perdue » dans le panel Commerce, avec préchargement automatique du cache.
+- Token API par poste : `POST /commerce/{slug}/hors-ligne/token`.
+- Sync push : opérations `create_product`, `update_product`, `create_customer`, `create_supplier`.
+- Sync push : références `*_local_id` (client, fournisseur, produit, achat, crédit, vente) résolues via `sync_operations`, dans un même lot ou d'un lot à l'autre (US-402).
+- Sync pull : `categories`, `units`, et paramètre `light=1`.
+- Tests : `OfflineModeTest`, `CaisseProductListTest` (34 tests au total).
+
+### Modifié
+- Caisse (« Boutique ») : la liste des produits actifs est affichée dès l'ouverture (en stock d'abord, 60 au maximum) ; la recherche ne fait que filtrer.
+- Service worker : assets `/build/assets/*` en cache-first ; sans réseau, une page du commerce affiche l'application hors ligne au lieu de la page générique `/offline`.
+
+### Corrigé
+- Les invités sur une route web protégée hors panel (PDF, mode hors ligne) obtenaient une erreur 500 (`Route [login] not defined`). Ils sont maintenant redirigés vers `/commerce/login`.
+
 ## [Non publié] — Sprint 1 « Stabilisation » (2026-11-09)
 
 ### ⚠️ À faire au déploiement

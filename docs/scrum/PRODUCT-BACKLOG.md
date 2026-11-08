@@ -1,6 +1,6 @@
 # Product Backlog — BeeZ
 
-> Priorisé par le Product Owner. Dernière mise à jour : 9 novembre 2026 (fin du Sprint 1).
+> Priorisé par le Product Owner. Dernière mise à jour : 9 novembre 2026 (fin du Sprint 2).
 > Les identifiants `Axx/Dxx/Cxx/Wxx` renvoient aux constats du [rapport d'audit](../05-AUDIT-2026-11.md).
 > Estimation en points (Fibonacci) ; priorité MoSCoW. Cadre de travail : [SCRUM-GUIDE.md](SCRUM-GUIDE.md).
 
@@ -11,12 +11,13 @@
 | EPIC-1 Sécurité multi-tenant & RBAC | Les droits d'un utilisateur dépendent du commerce dans lequel il agit | 30 | Must |
 | EPIC-2 Intégrité des données | Aucun historique perdu ; aucune référence en doublon | 24 | Must |
 | EPIC-3 Rapports fiables | Bénéfice et marges exacts (coût historique) | 13 | Must |
-| EPIC-4 Sync & API mobile | Sync robuste sur réseau instable ; app mobile alignée | 28 | Must/Should |
+| EPIC-4 Sync & API mobile | Sync robuste sur réseau instable ; app mobile alignée | 23 | Must/Should |
 | EPIC-5 Abonnements & portefeuille | Monétisation : abonnement payé par portefeuille, accès conditionné | 39 | Must |
 | EPIC-6 Qualité & DevOps | Livraisons sûres et reproductibles | 19 | Must/Should |
-| **Total restant** | | **153** | |
+| EPIC-7 Mode hors ligne web | Travailler sur la plateforme sans connexion, synchronisation automatique | 23 restants (29 livrés) | Must/Could |
+| **Total restant** | | **171** | |
 
-Avec une vélocité de 20 à 25 points par sprint, il faut compter **6 à 8 sprints**, soit environ 3 à 4 mois (voir le [TDR](../02-TDR.md)).
+Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 sprints**, soit environ 3 à 4 mois (voir le [TDR](../02-TDR.md)).
 
 ---
 
@@ -58,7 +59,7 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **6 à 8 spri
 |---|---|---|---|---|---|
 | US-406 | En tant que **caissier mobile**, je veux que l'app `beez-mobile` gère les nouveaux comportements de l'API (403 selon le rôle, totaux calculés par le serveur, rejeu idempotent, répartition des paiements fournisseur). | 5 | **Must** | — | [04-API.md](../04-API.md) |
 | US-401 | En tant qu'**utilisateur mobile** d'un commerce ancien, je veux une première synchronisation paginée (curseur), afin qu'elle aboutisse même en 3G. | 8 | Should | — | A13 |
-| US-402 | En tant qu'**utilisateur mobile**, je veux pouvoir valider ou payer, dans un lot de sync ultérieur, un achat créé hors-ligne (référence locale persistante côté serveur). | 5 | Could | — | A19 |
+| ~~US-402~~ ✅ | ~~En tant qu'**utilisateur mobile**, je veux pouvoir valider ou payer, dans un lot de sync ultérieur, un achat créé hors-ligne.~~ **Livré au Sprint 2** : références `*_local_id` génériques (voir US-703). | 5 | — | — | A19 |
 | US-403 | En tant qu'**admin**, je veux des limites de débit sur push/pull et une purge planifiée des tokens expirés. | 2 | Should | — | A16, A17 |
 | US-404 | En tant qu'**admin sécurité**, je veux que la connexion ne révèle pas les numéros inscrits (temps de réponse constant) et soit limitée par numéro de téléphone. | 3 | Should | — | A18 |
 | US-405 | En tant que **développeur mobile**, je veux une API versionnée (`/api/v1`) au format de réponse uniforme. | 5 | Could | US-406 | A20 |
@@ -87,17 +88,34 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **6 à 8 spri
 
 ---
 
+## EPIC-7 — Mode hors ligne de la plateforme web
+
+| ID | User story | Pts | Prio | Statut |
+|---|---|---|---|---|
+| US-701 | En tant que **propriétaire**, je veux encaisser, créer ou modifier mes produits et corriger mon stock sur la plateforme même sans connexion. | 13 | Must | ✅ Sprint 2 |
+| US-702 | En tant que **propriétaire**, je veux gérer hors ligne mes clients et leurs remboursements, mes achats (création, validation, paiement), mes fournisseurs et mes dépenses. | 8 | Must | ✅ Sprint 2 |
+| US-703 | En tant que **propriétaire**, je veux que mes opérations hors ligne se synchronisent automatiquement au retour du réseau, sans doublon, y compris celles qui utilisent un client ou un produit créé hors ligne. | 5 | Must | ✅ Sprint 2 |
+| US-704 | En tant qu'**utilisateur du panel**, je veux être basculé vers le mode hors ligne quand la connexion tombe, sans rien avoir préparé (préchargement automatique). | 3 | Must | ✅ Sprint 2 |
+| US-705 | En tant qu'**équipe**, je veux des tests navigateur de bout en bout (Playwright) : couper le réseau, vendre, rétablir, vérifier la base. | 5 | Should | À faire |
+| US-706 | En tant que **propriétaire**, je veux consulter hors ligne l'historique récent des ventes et un résumé du jour. | 5 | Could | À faire |
+| US-707 | En tant que **propriétaire sur un poste partagé**, je veux protéger les données locales par un code PIN (chiffrement). | 5 | Could | À faire |
+| US-708 | En tant qu'**utilisateur web**, je veux une resynchronisation incrémentale (`since`) plutôt qu'un snapshot complet à chaque cycle. | 3 | Should | À faire (après US-401) |
+| US-709 | En tant que **gérant**, je veux annuler un achat et désactiver un produit hors ligne. | 5 | Could | À faire |
+
+**Critères d'acceptation livrés (US-701 à 704)** : voir [SPRINT-02.md](SPRINT-02.md) et `tests/Feature/OfflineModeTest.php`.
+
 ## Proposition de découpage en sprints
 
 | Sprint | Objectif (Sprint Goal) | Stories | Points |
 |---|---|---|---|
 | **S1** ✅ | Stabiliser : sécurité multi-tenant, cohérence comptable, tests | Voir [SPRINT-01.md](SPRINT-01.md) | — |
-| **S2** | « Chaque utilisateur n'a que les droits de son rôle **dans** ce commerce, et le mobile est aligné » | US-101, US-102, US-406, US-601 | 26 |
-| **S3** | « Un commerçant peut payer son abonnement avec son portefeuille » | US-501, US-502, US-503, US-507, US-104 | 23 |
-| **S4** | « Les chiffres de bénéfice sont justes et l'historique est préservé » | US-301, US-302, US-201 | 21 |
-| **S5** | « La sync tient sur un réseau 3G instable » | US-401, US-403, US-404, US-603, US-504 | 21 |
-| **S6** | Consolidation | US-202, US-203, US-204, US-602 | 24 |
-| **S7+** | Évolutions | US-103, US-105, US-402, US-405, US-505, US-506, US-604, US-605 | 38 |
+| **S2** ✅ | « Le propriétaire travaille sur la plateforme même hors ligne » (priorité PO) | US-701 à US-704, US-402 + liste produits caisse — voir [SPRINT-02.md](SPRINT-02.md) | 34 |
+| **S3** | « Chaque utilisateur n'a que les droits de son rôle **dans** ce commerce, et le mobile est aligné » | US-101, US-102, US-406, US-601 | 26 |
+| **S4** | « Un commerçant peut payer son abonnement avec son portefeuille » | US-501, US-502, US-503, US-507, US-104 | 23 |
+| **S5** | « Les chiffres de bénéfice sont justes et l'historique est préservé » | US-301, US-302, US-201 | 21 |
+| **S6** | « La sync tient sur un réseau 3G instable » | US-401, US-708, US-403, US-404, US-603 | 19 |
+| **S7** | Consolidation | US-202, US-203, US-204, US-705 | 21 |
+| **S8+** | Évolutions | US-504, US-602, US-103, US-105, US-405, US-505, US-506, US-604, US-605, US-706, US-707, US-709 | 61 |
 
 ## Questions ouvertes pour le PO
 
