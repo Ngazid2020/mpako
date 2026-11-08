@@ -82,6 +82,18 @@ class Credit extends Model
         });
     }
 
+    /**
+     * Statut dérivé des montants (source unique de vérité pour observers et formulaires)
+     */
+    public static function deriveStatus(float $paidAmount, float $remainingAmount): string
+    {
+        return match (true) {
+            $remainingAmount <= 0 => 'paid',
+            $paidAmount > 0       => 'partial',
+            default               => 'pending',
+        };
+    }
+
     // ─────────────────────────────────────────────
     // ACCESSEURS
     // ─────────────────────────────────────────────

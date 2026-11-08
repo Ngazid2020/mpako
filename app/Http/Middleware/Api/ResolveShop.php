@@ -21,8 +21,16 @@ class ResolveShop
 
         $user = $request->user();
 
-        if (! $user->shops()->where('shops.id', $shop->id)->exists() && ! $user->is_admin) {
-            return response()->json(['message' => 'Accès non autorisé à ce commerce.'], 403);
+        if (! $user->is_admin) {
+            // L'approbation est re-vérifiée à chaque requête : un compte désactivé
+            // ne doit pas pouvoir continuer à utiliser un token encore valide (30 j).
+            if (! $user->is_approved) {
+                return response()->json(['message' => 'Compte en attente de validation ou désactivé.'], 403);
+            }
+
+            if (! $user->shops()->where('shops.id', $shop->id)->exists()) {
+                return response()->json(['message' => 'Accès non autorisé à ce commerce.'], 403);
+            }
         }
 
         $request->attributes->set('shop', $shop);

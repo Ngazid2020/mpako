@@ -100,9 +100,16 @@ class Subscription extends Model
     public function daysRemaining(): int
     {
         if ($this->ends_at) {
-            return max(0, now()->diffInDays($this->ends_at));
+            // Carbon 3 renvoie un float signé : on arrondit au jour inférieur, jamais négatif
+            return max(0, (int) floor(now()->diffInDays($this->ends_at, false)));
         }
         return 0;
+    }
+
+    /** Accesseur pour les colonnes Filament `days_remaining` */
+    public function getDaysRemainingAttribute(): int
+    {
+        return $this->daysRemaining();
     }
 
     // ─────────────────────────────────────────────

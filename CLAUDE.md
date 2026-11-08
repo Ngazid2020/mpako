@@ -22,21 +22,27 @@ Enregistrés dans `AppServiceProvider`. **Ne jamais bypasser les observers**, il
 
 | Observer | Déclencheur | Effet |
 |----------|------------|-------|
-| `StockMovementObserver` | Creating | Calcule `stock_before/after`, set `shop_id` + `user_id` |
-| `StockMovementObserver` | Created | Met à jour `product.stock_qty` |
-| `PurchaseObserver` | Updated (→ completed) | Crée mouvements stock 'in', update prix achat, augmente `supplier.balance` |
-| `PurchaseObserver` | Updating (→ cancelled) | Crée mouvements stock 'out' inversés |
+| `StockMovementObserver` | Creating | Verrouille le produit (`lockForUpdate`), **refuse un produit d'un autre shop**, calcule `stock_before/after` (plancher 0, écart journalisé), set `shop_id` + `user_id` |
+| `StockMovementObserver` | Created | Met à jour `product.stock_qty` ; notification stock faible **au franchissement du seuil**, après commit |
+| `PurchaseObserver` | Updated (pending → completed) | Mouvements 'in', `buy_price`, `supplier.balance += debt_amount` |
+| `PurchaseObserver` | Updated (→ cancelled) | Si l'achat était validé : mouvements 'out' + `supplier.balance -= debt_amount`. Dans tous les cas `debt_amount = 0` |
+| `PurchaseObserver` | Deleting | **Refuse** la suppression d'un achat validé (il faut l'annuler) |
+| `Purchase` (modèle) | Saving | `payment_status` dérivé de `paid/debt` (`Purchase::derivePaymentStatus`) |
 | `CreditObserver` | Created | Augmente `customer.balance` |
+| `CreditObserver` | Updating/Updated (total modifié) | Recalcule `remaining_amount` + statut, répercute l'écart sur `customer.balance` |
 | `CreditObserver` | Deleted | Diminue `customer.balance` du restant |
-| `CreditPaymentObserver` | Created | Update `credit.paid_amount/remaining/status`, diminue `customer.balance` |
-| `CreditPaymentObserver` | Deleted | Annule les effets |
-| `SupplierPaymentObserver` | Created | Update `purchase.paid_amount/debt/payment_status`, diminue `supplier.balance` |
-| `SupplierPaymentObserver` | Deleted | Annule les effets |
+| `CreditPaymentObserver` | Creating | Refuse un crédit soldé, **plafonne `amount` au reste dû**, complète `user_id` |
+| `CreditPaymentObserver` | Created / Deleted | Met à jour le crédit (`updateQuietly`) et `customer.balance` du montant exact |
+| `SupplierPaymentObserver` | Creating | Refuse un achat non validé ou sans fournisseur, plafonne `amount` à la dette, complète `supplier_id`/`user_id` |
+| `SupplierPaymentObserver` | Created / Deleted | Met à jour l'achat et `supplier.balance` (`deleted` ignoré si l'achat n'est plus validé) |
+
+⚠️ **Un achat se crée toujours en `pending`** puis se valide *après* l'enregistrement de ses lignes. Exemples : `CreatePurchase::afterCreate()`, `SyncController::createPurchase`. Créé directement en `completed`, l'observer ne verrait aucune ligne.
 
 ### Rôles (ShopRolesSeeder)
-- **owner** : Toutes les permissions
-- **manager** : Tout sauf gestion employés/rôles
-- **cashier** : Vue produit, création vente/crédit, vue client
+- **owner** : toutes les permissions **sauf celles réservées au super-admin** (shops, users, roles, abonnements, portefeuilles en écriture). Garde `view/update_shop` et la lecture de son portefeuille.
+- **manager** : comme owner, sans la gestion des employés et des rôles.
+- **cashier** : vue produit, création vente/crédit, vue/création client, `page_Caisse`.
+- ⚠️ Les rôles Spatie sont **globaux** (`teams=false`) : un rôle s'applique dans tous les commerces de l'utilisateur. Le passage aux rôles par commerce est prévu dans le backlog (US-101).
 
 ---
 
@@ -93,8 +99,16 @@ Token durée : 30 jours
 | POST `/api/auth/login` | — | Login, retourne user + shops + token |
 | POST `/api/auth/logout` | sanctum | Supprime le token courant |
 | GET `/api/auth/me` | sanctum | User + shops |
+| `/api/shop/{slug}/…` | sanctum + `ResolveShop` | Endpoints commerce + sync `pull`/`push` (voir `docs/04-API.md`) |
 
 Contrôleur : `app/Http/Controllers/Api/AuthController.php`
+
+Règles de l'API commerce (trait `Api\Concerns\InteractsWithShop`) :
+- `authorizeAny($request, 'create_purchase', …)` dans chaque action, avec les mêmes noms de permissions Shield que les policies.
+- Tout identifiant reçu est validé avec `inShop('table', $shop)`, l'équivalent de `exists` filtré par `shop_id`.
+- Les ventes passent par `App\Services\SaleRecorder`, côté REST comme côté sync : totaux recalculés, stock agrégé.
+- `push` est idempotent grâce à la table `sync_operations`, avec une contrainte unique sur `(shop_id, local_id)`.
+- `ResolveShop` revérifie `is_approved` à chaque requête.
 
 ---
 
@@ -108,21 +122,25 @@ composer install && npm install
 cp .env.example .env
 php artisan key:generate
 
-# Base de données
+# Base de données — l'ORDRE compte (BeezSeeder a besoin des rôles, les rôles des permissions)
 php artisan migrate
-php artisan db:seed --class=DatabaseSeeder       # admin@komorshop.com / password
+php artisan db:seed                              # DatabaseSeeder : admin@beez.km / password
+php artisan shield:generate --all                # Permissions Shield (à relancer si nouvelles resources)
 php artisan db:seed --class=ShopRolesSeeder      # Crée les 3 rôles
-php artisan db:seed --class=KomorShopSeeder      # Données de démo
-
-# Permissions Filament-Shield (à relancer si nouvelles resources)
-php artisan shield:generate --all
+php artisan db:seed --class=BeezSeeder           # Démo : commerçants +2699000001 / +2699000002 (password)
+# puis éventuellement StockSeeder, PurchaseSeeder, CreditSeeder, ExpenseSeeder
 
 # Lancer
 php artisan serve
 npm run dev
+
+# Tests (SQLite :memory: — ne touche jamais la base de dev)
+php artisan test
 ```
 
-Compte admin par défaut : `admin@komorshop.com` / `password`
+Compte admin par défaut : `admin@beez.km` / `password`
+
+⚠️ Ne jamais lancer `migrate:fresh` ou de tests avec `RefreshDatabase` sur la base MySQL de dev (`.env`). Les tests utilisent `phpunit.xml` (SQLite en mémoire).
 
 ---
 
@@ -152,6 +170,12 @@ Compte admin par défaut : `admin@komorshop.com` / `password`
 - **`customer.balance` et `supplier.balance`** sont des dettes (positif = doit de l'argent) — maintenu exclusivement par les observers.
 - **Références de vente** : créées dans `Sale::generateReference()`, ne jamais les générer manuellement.
 - Le projet cible les **Comores** — noms d'îles (Grande Comore, Anjouan, Mohéli, Mayotte), devise **KMF**.
+- **Filament multi-tenant** : les `SelectFilter::relationship()` ne sont **pas** filtrés automatiquement par tenant. Il faut toujours passer `fn ($q) => $q->where('shop_id', Filament::getTenant()?->getKey())`.
+- **Caisse** : `$cart` est un état Livewire public, donc modifiable par le client. Les prix sont relus en base (`rebuildCartFromDatabase()`) avant encaissement.
+- **Portefeuille** : le solde ne change que via `Wallet::credit()` / `debit()` (transaction + verrou). Les `WalletTransaction` forment un journal en ajout seul.
+- **Ressources Admin masquées** (`shouldRegisterNavigation = false`) : elles n'existent que pour Shield et utilisent le trait `ShieldOnlyResource`, en lecture seule.
+- **Filament 3** : `readOnly()` n'existe que sur `TextInput`/`Textarea`. Pour un `Select`/`Toggle`, utiliser `disabled()`. C'est `modalHeading()` (pas `modalTitle()`) et `auth()->user()?->can()` (pas `auth()->can()`).
+- **Méthodologie** : Agile/Scrum. Backlog dans `docs/scrum/PRODUCT-BACKLOG.md`, Definition of Done dans `docs/scrum/SCRUM-GUIDE.md`. Toute nouvelle page Filament s'ajoute à `tests/Feature/FilamentSmokeTest.php`.
 
 ---
 

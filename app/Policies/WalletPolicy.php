@@ -105,4 +105,45 @@ class WalletPolicy
     {
         return $user->can('reorder_wallet');
     }
+
+    /**
+     * Determine whether the user can submit the wallet for validation.
+     * Only the shop owner can submit their own wallet.
+     */
+    public function submit(User $user, Wallet $wallet): bool
+    {
+        // L'utilisateur doit être membre du commerce propriétaire du portefeuille
+        if ($wallet->shop->members()->where('users.id', $user->id)->doesntExist()) {
+            return false;
+        }
+        
+        // Le portefeuille doit être en statut 'draft' pour pouvoir être soumis
+        return $wallet->canBeSubmitted();
+    }
+
+    /**
+     * Determine whether the user can approve the wallet.
+     * Only admins can approve wallets.
+     */
+    public function approve(User $user, Wallet $wallet): bool
+    {
+        return $user->is_admin && $wallet->canBeValidated();
+    }
+
+    /**
+     * Determine whether the user can reject the wallet.
+     * Only admins can reject wallets.
+     */
+    public function reject(User $user, Wallet $wallet): bool
+    {
+        return $user->is_admin && $wallet->canBeValidated();
+    }
+
+    /**
+     * Determine whether the user can validate (approve/reject) any wallet.
+     */
+    public function validateAny(User $user): bool
+    {
+        return (bool) $user->is_admin;
+    }
 }

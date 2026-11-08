@@ -151,7 +151,7 @@ class ShopResource extends Resource
                 Tables\Columns\TextColumn::make('wallet_balance')
                     ->label('Portefeuille')
                     ->money('KMF')
-                    ->sortable()
+                    // accesseur (pas une colonne SQL) : non triable
                     ->color(fn($state) => $state >= 1000 ? 'success' : ($state > 0 ? 'warning' : 'danger')),
 
                 Tables\Columns\TextColumn::make('subscription_expires_at')
@@ -187,7 +187,8 @@ class ShopResource extends Resource
                     ->label('Recharger')
                     ->icon('heroicon-o-wallet')
                     ->color('success')
-                    ->url(fn($record) => WalletTransactionResource::getUrl('create') . '?wallet_id=' . ($record->wallet?->id ?? ''))
+                    ->visible(fn($record) => $record->wallet !== null)
+                    ->url(fn($record) => WalletTransactionResource::getUrl('create', ['wallet_id' => $record->wallet?->id]))
                     ->openUrlInNewTab(),
             ])
             ->bulkActions([

@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PurchaseResource extends Resource
 {
+    use \App\Traits\ShieldOnlyResource;
+
     protected static ?string $model = Purchase::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';

@@ -188,7 +188,7 @@ class CreditResource extends Resource
 
                 Tables\Filters\SelectFilter::make('customer')
                     ->label('Client')
-                    ->relationship('customer', 'name'),
+                    ->relationship('customer', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()?->getKey())),
 
                 Tables\Filters\Filter::make('overdue')
                     ->label('En retard')
@@ -213,6 +213,7 @@ class CreditResource extends Resource
                         ->icon('heroicon-o-banknotes')
                         ->color('success')
                         ->visible(fn(Credit $record): bool => $record->status !== 'paid')
+                        ->authorize(fn(): bool => auth()->user()?->canAny(['create_credit', 'update_credit']) ?? false)
                         ->form(function (Credit $record): array {
                             return [
                                 Forms\Components\Placeholder::make('info')

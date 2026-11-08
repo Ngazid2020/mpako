@@ -2,43 +2,56 @@
 
 namespace App\Observers;
 
+use App\Models\Purchase;
 use App\Models\SupplierPayment;
 
 class SupplierPaymentObserver
 {
     /**
-     * Quand un paiement fournisseur est enregistré :
-     * 1. Mettre à jour paid_amount et debt_amount du Purchase
-     * 2. Mettre à jour le payment_status du Purchase
-     * 3. Réduire la balance du Supplier
+     * Garde-fous avant insertion :
+     *  - seul un achat VALIDÉ porte une dette fournisseur (pending/cancelled refusés)
+     *  - montant plafonné à la dette restante (pour que `deleted` annule exactement l'effet)
+     *  - supplier_id / user_id complétés (colonnes NOT NULL)
+     */
+    public function creating(SupplierPayment $payment): void
+    {
+        $purchase = Purchase::whereKey($payment->purchase_id)->lockForUpdate()->firstOrFail();
+
+        if ($purchase->status !== 'completed') {
+            throw new \RuntimeException("Seul un achat validé peut être payé ({$purchase->reference} : {$purchase->status}).");
+        }
+
+        if (! $purchase->supplier_id) {
+            throw new \RuntimeException("L'achat {$purchase->reference} n'a pas de fournisseur.");
+        }
+
+        if ((float) $purchase->debt_amount <= 0) {
+            throw new \RuntimeException("L'achat {$purchase->reference} est déjà entièrement payé.");
+        }
+
+        $payment->amount      = min((float) $payment->amount, (float) $purchase->debt_amount);
+        $payment->supplier_id = $purchase->supplier_id;
+        $payment->user_id   ??= auth()->id() ?? $purchase->user_id;
+    }
+
+    /**
+     * 1. Met à jour paid_amount / debt_amount / payment_status de l'achat
+     * 2. Réduit la balance du fournisseur
      */
     public function created(SupplierPayment $payment): void
     {
         $purchase = $payment->purchase;
+        $amount   = (float) $payment->amount;
 
-        // Borner au montant réellement dû (défense contre overpayment)
-        $effective = min((float) $payment->amount, (float) $purchase->debt_amount);
+        $newPaid = (float) $purchase->paid_amount + $amount;
 
-        // ── Calculer les nouveaux montants ──
-        $newPaidAmount = (float) $purchase->paid_amount + $effective;
-        $newDebtAmount = max(0, (float) $purchase->total_amount - $newPaidAmount);
-
-        // ── Déterminer le nouveau payment_status ──
-        $newPaymentStatus = match(true) {
-            $newDebtAmount <= 0   => 'paid',
-            $newPaidAmount > 0    => 'partial',
-            default               => 'unpaid',
-        };
-
-        // ── Mettre à jour le Purchase ──
+        // Purchase::saving recalcule payment_status
         $purchase->update([
-            'paid_amount'    => $newPaidAmount,
-            'debt_amount'    => $newDebtAmount,
-            'payment_status' => $newPaymentStatus,
+            'paid_amount' => $newPaid,
+            'debt_amount' => max(0, round((float) $purchase->total_amount - $newPaid, 2)),
         ]);
 
-        // ── Réduire la balance du fournisseur (montant effectif uniquement) ──
-        $payment->supplier->decrement('balance', $effective);
+        $payment->supplier->decrement('balance', $amount);
     }
 
     /**
@@ -48,22 +61,19 @@ class SupplierPaymentObserver
     {
         $purchase = $payment->purchase;
 
-        $newPaidAmount = max(0, (float) $purchase->paid_amount - (float) $payment->amount);
-        $newDebtAmount = (float) $purchase->total_amount - $newPaidAmount;
+        // Achat annulé : sa dette a déjà été soldée à l'annulation, on ne la ressuscite pas.
+        if (! $purchase || $purchase->status !== 'completed') {
+            return;
+        }
 
-        $newPaymentStatus = match(true) {
-            $newDebtAmount <= 0 => 'paid',
-            $newPaidAmount > 0  => 'partial',
-            default             => 'unpaid',
-        };
+        $amount  = (float) $payment->amount;
+        $newPaid = max(0, (float) $purchase->paid_amount - $amount);
 
         $purchase->update([
-            'paid_amount'    => $newPaidAmount,
-            'debt_amount'    => $newDebtAmount,
-            'payment_status' => $newPaymentStatus,
+            'paid_amount' => $newPaid,
+            'debt_amount' => max(0, round((float) $purchase->total_amount - $newPaid, 2)),
         ]);
 
-        // ── Restaurer la balance du fournisseur ──
-        $payment->supplier->increment('balance', $payment->amount);
+        $payment->supplier?->increment('balance', $amount);
     }
 }

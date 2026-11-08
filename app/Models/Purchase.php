@@ -30,6 +30,45 @@ class Purchase extends Model
         'purchased_at'  => 'date',
     ];
 
+    protected static function booted(): void
+    {
+        // payment_status est toujours dérivé de paid/debt (source unique de vérité)
+        static::saving(function (self $purchase) {
+            if ($purchase->isDirty(['paid_amount', 'debt_amount', 'total_amount']) || ! $purchase->payment_status) {
+                $purchase->payment_status = static::derivePaymentStatus(
+                    (float) $purchase->total_amount,
+                    (float) $purchase->paid_amount,
+                    (float) $purchase->debt_amount,
+                );
+            }
+        });
+    }
+
+    public static function derivePaymentStatus(float $total, float $paid, float $debt): string
+    {
+        return match (true) {
+            $total > 0 && $debt <= 0 => 'paid',
+            $paid > 0                => 'partial',
+            default                  => 'unpaid',
+        };
+    }
+
+    /**
+     * Recalcule total/dette depuis les lignes enregistrées en base
+     * (ne fait jamais confiance aux totaux envoyés par le formulaire).
+     */
+    public function syncTotalsFromItems(): void
+    {
+        $total = round((float) $this->items()->sum('subtotal'), 2);
+        $paid  = min((float) $this->paid_amount, $total);
+
+        $this->update([
+            'total_amount' => $total,
+            'paid_amount'  => $paid,
+            'debt_amount'  => max(0, round($total - $paid, 2)),
+        ]);
+    }
+
     // ─────────────────────────────────────────────
     // RELATIONS
     // ─────────────────────────────────────────────

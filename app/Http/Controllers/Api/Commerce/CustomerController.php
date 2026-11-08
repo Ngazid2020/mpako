@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Commerce;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithShop;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\CustomerResource;
 use App\Http\Resources\Api\CreditResource;
@@ -10,8 +11,12 @@ use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
+    use InteractsWithShop;
+
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeAny($request, 'view_any_customer');
+
         $shop      = $request->attributes->get('shop');
         $customers = $shop->customers()->where('is_active', true)->get();
 
@@ -20,6 +25,8 @@ class CustomerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeAny($request, 'create_customer');
+
         $shop = $request->attributes->get('shop');
 
         $validated = $request->validate([
@@ -41,6 +48,8 @@ class CustomerController extends Controller
 
     public function credits(Request $request, string $shopSlug, int $customerId): JsonResponse
     {
+        $this->authorizeAny($request, 'view_any_credit');
+
         $shop     = $request->attributes->get('shop');
         $customer = $shop->customers()->findOrFail($customerId);
         $credits  = $customer->credits()->latest()->get();

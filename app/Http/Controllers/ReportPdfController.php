@@ -21,6 +21,21 @@ class ReportPdfController extends Controller
             abort(403);
         }
 
+        // Mêmes droits que les pages de rapports du panel (Shield : page_*)
+        $permission = match ($type) {
+            'stock'               => 'page_StockReport',
+            'ventes'              => 'page_SalesReport',
+            'credits'             => 'page_CreditsReport',
+            'profit'              => 'page_ProfitReport',
+            'dettes-fournisseurs' => 'page_SupplierDebtsReport',
+            'top-produits'        => 'page_TopProductsReport',
+            default               => abort(404),
+        };
+
+        if (!$user->is_admin && (!$user->is_approved || !$user->can($permission))) {
+            abort(403);
+        }
+
         [$view, $data, $filename] = match ($type) {
             'stock'               => $this->stockReport($shop),
             'ventes'              => $this->salesReport($shop, $request),

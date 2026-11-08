@@ -134,7 +134,12 @@ class ProductResource extends Resource
                             ->numeric()
                             ->default(0)
                             ->minValue(0)
-                            ->helperText('Stock de départ lors de la création'),
+                            // Après création, le stock ne change QUE via des mouvements (traçabilité)
+                            ->disabled(fn(?\App\Models\Product $record) => $record !== null)
+                            ->dehydrated(fn(?\App\Models\Product $record) => $record === null)
+                            ->helperText(fn(?\App\Models\Product $record) => $record
+                                ? 'Pour corriger le stock, utilisez un mouvement de stock (ajustement).'
+                                : 'Stock de départ lors de la création'),
 
                         Forms\Components\TextInput::make('stock_alert')
                             ->label('Seuil d\'alerte')
@@ -204,7 +209,7 @@ class ProductResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
                     ->label('Catégorie')
-                    ->relationship('category', 'name'),
+                    ->relationship('category', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()?->getKey())),
 
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Statut'),

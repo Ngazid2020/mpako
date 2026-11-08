@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers\Api\Commerce;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithShop;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReportController
 {
+    use InteractsWithShop;
+
     public function summary(Request $request): JsonResponse
     {
+        // Mêmes droits que les rapports du panel (page_SalesReport…) ou la consultation des ventes
+        $this->authorizeAny($request, 'page_SalesReport', 'page_ProfitReport');
+
         $shop = $request->attributes->get('shop');
         $shopId = $shop->id;
         $today = now()->toDateString();
@@ -95,6 +101,9 @@ class ReportController
 
     public function salesByDay(Request $request): JsonResponse
     {
+        // Mêmes droits que les rapports du panel (page_SalesReport…) ou la consultation des ventes
+        $this->authorizeAny($request, 'page_SalesReport', 'page_ProfitReport');
+
         $shop = $request->attributes->get('shop');
         $shopId = $shop->id;
         $days = min(30, max(7, (int) $request->query('days', 14)));
@@ -132,6 +141,9 @@ class ReportController
 
     public function topProducts(Request $request): JsonResponse
     {
+        // Mêmes droits que les rapports du panel (page_SalesReport…) ou la consultation des ventes
+        $this->authorizeAny($request, 'page_SalesReport', 'page_ProfitReport');
+
         $shop = $request->attributes->get('shop');
         $shopId = $shop->id;
         $limit = min(10, max(5, (int) $request->query('limit', 8)));
@@ -157,6 +169,9 @@ class ReportController
 
     public function expensesByCategory(Request $request): JsonResponse
     {
+        // Mêmes droits que les rapports du panel (page_SalesReport…) ou la consultation des ventes
+        $this->authorizeAny($request, 'page_SalesReport', 'page_ProfitReport');
+
         $shop = $request->attributes->get('shop');
         $shopId = $shop->id;
         $monthStart = now()->startOfMonth()->toDateString();

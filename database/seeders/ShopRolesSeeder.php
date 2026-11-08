@@ -8,6 +8,26 @@ use Spatie\Permission\Models\Role;
 
 class ShopRolesSeeder extends Seeder
 {
+    /** Ressources réservées au super-admin (suffixe de permission Shield) */
+    private const ADMIN_ONLY_SUFFIXES = [
+        'shop', 'user', 'role',
+        'subscription', 'subscription::plan',
+        'wallet', 'wallet::transaction',
+    ];
+
+    private const ADMIN_ONLY_PERMISSIONS = [
+        'widget_AdminStatsOverview',
+        'widget_ShopGrowthChart',
+        'approve_wallet',
+        'reject_wallet',
+    ];
+
+    private const OWNER_EXCEPTIONS = [
+        'view_shop', 'update_shop',
+        'view_any_wallet', 'view_wallet',
+        'view_any_wallet::transaction', 'view_wallet::transaction',
+    ];
+
     public function run(): void
     {
         // Reset cache
@@ -21,8 +41,20 @@ class ShopRolesSeeder extends Seeder
             'guard_name' => 'web',
         ]);
 
-        // Toutes les permissions du panel commerce
-        $allPermissions = Permission::where('guard_name', 'web')->get();
+        // Toutes les permissions du panel commerce — SAUF celles réservées au super-admin
+        // (gestion des commerces, utilisateurs, rôles, abonnements, portefeuilles, widgets admin)
+        $allPermissions = Permission::where('guard_name', 'web')
+            ->where(function ($q) {
+                foreach (self::ADMIN_ONLY_SUFFIXES as $suffix) {
+                    $q->where('name', 'not like', '%_' . $suffix);
+                }
+            })
+            ->whereNotIn('name', self::ADMIN_ONLY_PERMISSIONS)
+            ->get()
+            // …mais le commerçant garde la gestion de SON profil et la lecture de SON portefeuille
+            ->merge(Permission::where('guard_name', 'web')->whereIn('name', self::OWNER_EXCEPTIONS)->get())
+            ->unique('id')
+            ->values();
         $owner->syncPermissions($allPermissions);
 
         $this->command->info('✅ Rôle OWNER : ' . $allPermissions->count() . ' permissions');
@@ -36,12 +68,9 @@ class ShopRolesSeeder extends Seeder
         ]);
 
         // Le manager a TOUT sauf gérer les employés
-        $managerPermissions = Permission::where('guard_name', 'web')
-            ->where('name', 'not like', '%_employee')
-            ->where('name', 'not like', '%_any_employee')
-            ->where('name', 'not like', '%_role')
-            ->where('name', 'not like', '%_any_role')
-            ->get();
+        $managerPermissions = $allPermissions
+            ->reject(fn ($p) => str_ends_with($p->name, '_employee') || str_ends_with($p->name, '_role'))
+            ->values();
 
         $manager->syncPermissions($managerPermissions);
 
@@ -75,6 +104,9 @@ class ShopRolesSeeder extends Seeder
             'view_any_customer',
             'view_customer',
             'create_customer',
+
+            // Accès à la caisse (page protégée par HasShieldPermissionPages)
+            'page_Caisse',
         ];
 
         $cashierPermissions = Permission::whereIn('name', $cashierPermissionNames)

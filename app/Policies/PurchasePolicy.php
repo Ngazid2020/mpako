@@ -47,7 +47,9 @@ class PurchasePolicy
      */
     public function delete(User $user, Purchase $purchase): bool
     {
-        return $user->can('delete_purchase');
+        // Un achat validé s'annule (action "Annuler"), il ne se supprime pas :
+        // la suppression laisserait stock et dette fournisseur gonflés.
+        return $purchase->status !== 'completed' && $user->can('delete_purchase');
     }
 
     /**

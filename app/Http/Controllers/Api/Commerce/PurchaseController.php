@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Commerce;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithShop;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\PurchaseResource;
 use App\Models\Purchase;
@@ -13,9 +14,13 @@ use Illuminate\Support\Facades\DB;
 
 class PurchaseController extends Controller
 {
+    use InteractsWithShop;
+
     public function index(Request $request): JsonResponse
     {
-        $shop      = $request->attributes->get('shop');
+        $this->authorizeAny($request, 'view_any_purchase');
+
+        $shop      = $this->shop($request);
         $purchases = $shop->purchases()->with(['supplier', 'items'])->latest()->limit(100)->get();
 
         return response()->json(PurchaseResource::collection($purchases));
@@ -23,22 +28,29 @@ class PurchaseController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeAny($request, 'create_purchase');
+
+        $shop = $this->shop($request);
+
         $request->validate([
-            'supplier_id'          => 'nullable|integer',
+            'supplier_id'          => ['nullable', 'integer', $this->inShop('suppliers', $shop)],
             'items'                => 'required|array|min:1',
-            'items.*.product_id'   => 'required|integer',
+            'items.*.product_id'   => ['required', 'integer', $this->inShop('products', $shop)],
             'items.*.product_name' => 'required|string',
             'items.*.quantity'     => 'required|numeric|min:0.01',
             'items.*.unit_cost'    => 'required|numeric|min:0',
-            'items.*.subtotal'     => 'required|numeric|min:0',
-            'total_amount'         => 'required|numeric|min:0',
+            'items.*.subtotal'     => 'nullable|numeric|min:0',
+            'purchased_at'         => 'nullable|date',
             'note'                 => 'nullable|string|max:500',
         ]);
 
-        $shop = $request->attributes->get('shop');
         $user = $request->user();
 
         $purchase = DB::transaction(function () use ($request, $shop, $user) {
+            // Total recalculé côté serveur (PurchaseItem recalcule aussi chaque subtotal)
+            $total = collect($request->items)
+                ->sum(fn ($i) => round((float) $i['quantity'] * (float) $i['unit_cost'], 2));
+
             $purchase = Purchase::create([
                 'shop_id'        => $shop->id,
                 'user_id'        => $user->id,
@@ -46,9 +58,10 @@ class PurchaseController extends Controller
                 'reference'      => Purchase::generateReference($shop->id),
                 'status'         => 'pending',
                 'payment_status' => 'unpaid',
-                'total_amount'   => $request->total_amount,
+                'total_amount'   => $total,
                 'paid_amount'    => 0,
-                'debt_amount'    => $request->total_amount,
+                'debt_amount'    => $total,
+                'purchased_at'   => $request->purchased_at ?? now()->toDateString(),
                 'note'           => $request->note,
             ]);
 
@@ -59,7 +72,6 @@ class PurchaseController extends Controller
                     'product_name' => $item['product_name'],
                     'quantity'     => $item['quantity'],
                     'unit_cost'    => $item['unit_cost'],
-                    'subtotal'     => $item['subtotal'],
                 ]);
             }
 
@@ -72,59 +84,86 @@ class PurchaseController extends Controller
     /**
      * Valide l'achat (pending → completed).
      * Le PurchaseObserver gère automatiquement : stock, buy_price, balance fournisseur.
+     *
+     * ⚠️ Les paramètres de route sont passés par position : {shop} puis {purchase}.
      */
-    public function complete(Request $request, int $purchaseId): JsonResponse
+    public function complete(Request $request, string $shopSlug, int $purchaseId): JsonResponse
     {
-        $shop     = $request->attributes->get('shop');
-        $purchase = $shop->purchases()->findOrFail($purchaseId);
+        $this->authorizeAny($request, 'update_purchase');
 
-        if ($purchase->status !== 'pending') {
-            return response()->json(['message' => 'Cet achat ne peut pas être validé (statut : ' . $purchase->status . ').'], 422);
-        }
+        $shop = $this->shop($request);
 
-        $purchase->update(['status' => 'completed']);
+        return DB::transaction(function () use ($shop, $purchaseId) {
+            $purchase = $shop->purchases()->lockForUpdate()->findOrFail($purchaseId);
 
-        return response()->json([
-            'status'  => 'completed',
-            'message' => 'Achat validé. Le stock a été mis à jour.',
-        ]);
+            if ($purchase->status !== 'pending') {
+                return response()->json(['message' => 'Cet achat ne peut pas être validé (statut : ' . $purchase->status . ').'], 422);
+            }
+
+            $purchase->update(['status' => 'completed']);
+
+            return response()->json([
+                'status'  => 'completed',
+                'message' => 'Achat validé. Le stock a été mis à jour.',
+            ]);
+        });
     }
 
     /**
      * Enregistre un paiement de la dette fournisseur sur cet achat.
      * Le SupplierPaymentObserver met à jour paid_amount, debt_amount, payment_status et supplier.balance.
      */
-    public function pay(Request $request, int $purchaseId): JsonResponse
+    public function pay(Request $request, string $shopSlug, int $purchaseId): JsonResponse
     {
-        $shop     = $request->attributes->get('shop');
-        $user     = $request->user();
-        $purchase = $shop->purchases()->findOrFail($purchaseId);
-
-        if ((float) $purchase->debt_amount <= 0) {
-            return response()->json(['message' => 'Cet achat est déjà entièrement payé.'], 422);
-        }
+        $this->authorizeAny($request, 'update_purchase', 'update_supplier');
 
         $validated = $request->validate([
-            'amount'  => 'required|numeric|min:1|max:' . (float) $purchase->debt_amount,
+            'amount'  => 'required|numeric|min:1',
             'paid_at' => 'nullable|date',
+            'note'    => 'nullable|string|max:255',
         ]);
 
-        $amount = min((float) $validated['amount'], (float) $purchase->debt_amount);
+        $shop = $this->shop($request);
+        $user = $request->user();
 
-        SupplierPayment::create([
-            'purchase_id' => $purchase->id,
-            'supplier_id' => $purchase->supplier_id,
-            'user_id'     => $user->id,
-            'amount'      => $amount,
-            'paid_at'     => $validated['paid_at'] ?? now()->toDateString(),
-        ]);
+        return DB::transaction(function () use ($shop, $user, $purchaseId, $validated) {
+            $purchase = $shop->purchases()->lockForUpdate()->findOrFail($purchaseId);
 
-        $purchase->refresh();
+            // La dette fournisseur n'existe qu'après validation de l'achat
+            if ($purchase->status !== 'completed') {
+                return response()->json(['message' => "Seul un achat validé peut être payé (statut : {$purchase->status})."], 422);
+            }
 
-        return response()->json([
-            'paid'      => $amount,
-            'remaining' => (float) $purchase->debt_amount,
-            'status'    => $purchase->payment_status,
-        ]);
+            if (! $purchase->supplier_id) {
+                return response()->json(['message' => 'Cet achat n\'a pas de fournisseur : aucune dette à régler.'], 422);
+            }
+
+            if ((float) $purchase->debt_amount <= 0) {
+                return response()->json(['message' => 'Cet achat est déjà entièrement payé.'], 422);
+            }
+
+            if ((float) $validated['amount'] > (float) $purchase->debt_amount) {
+                return response()->json(['message' => 'Montant supérieur au reste dû (' . (float) $purchase->debt_amount . ').'], 422);
+            }
+
+            $amount = (float) $validated['amount'];
+
+            SupplierPayment::create([
+                'purchase_id' => $purchase->id,
+                'supplier_id' => $purchase->supplier_id,
+                'user_id'     => $user->id,
+                'amount'      => $amount,
+                'paid_at'     => $validated['paid_at'] ?? now()->toDateString(),
+                'note'        => $validated['note'] ?? null,
+            ]);
+
+            $purchase->refresh();
+
+            return response()->json([
+                'paid'      => $amount,
+                'remaining' => (float) $purchase->debt_amount,
+                'status'    => $purchase->payment_status,
+            ]);
+        });
     }
 }

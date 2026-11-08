@@ -2,60 +2,117 @@
 
 namespace App\Http\Controllers\Api\Commerce;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithShop;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\SupplierResource;
+use App\Models\Shop;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SupplierController extends Controller
 {
+    use InteractsWithShop;
+
     public function index(Request $request): JsonResponse
     {
-        $shop      = $request->attributes->get('shop');
-        $suppliers = $shop->suppliers()->orderBy('name')->get();
+        $this->authorizeAny($request, 'view_any_supplier');
+
+        $suppliers = $this->shop($request)->suppliers()->orderBy('name')->get();
 
         return response()->json(SupplierResource::collection($suppliers));
     }
 
     public function pay(Request $request, string $shopSlug, int $supplierId): JsonResponse
     {
-        $request->validate([
+        $this->authorizeAny($request, 'update_supplier', 'update_purchase');
+
+        $validated = $request->validate([
             'amount'  => 'required|numeric|min:1',
             'paid_at' => 'nullable|date',
-            'note'    => 'nullable|string|max:500',
+            'note'    => 'nullable|string|max:255',
         ]);
 
-        $shop     = $request->attributes->get('shop');
-        $supplier = $shop->suppliers()->findOrFail($supplierId);
+        $shop = $this->shop($request);
 
-        if ($supplier->balance <= 0) {
-            return response()->json(['message' => 'Aucune dette à régler.'], 422);
-        }
+        $supplier = DB::transaction(function () use ($shop, $supplierId, $validated, $request) {
+            $supplier = $shop->suppliers()->lockForUpdate()->findOrFail($supplierId);
 
-        if ($request->amount > $supplier->balance) {
-            return response()->json(['message' => 'Montant supérieur à la dette.'], 422);
-        }
+            static::allocateSupplierPayment(
+                $shop,
+                $supplier,
+                $request->user(),
+                (float) $validated['amount'],
+                $validated['paid_at'] ?? null,
+                $validated['note'] ?? null,
+            );
 
-        $purchase = $shop->purchases()
+            return $supplier->fresh();
+        });
+
+        return response()->json(new SupplierResource($supplier), 201);
+    }
+
+    /**
+     * Répartit un paiement global sur les achats VALIDÉS impayés du fournisseur,
+     * du plus ancien au plus récent (FIFO). Refuse tout montant supérieur à la dette réelle.
+     *
+     * @return array<int, array{purchase_id:int, amount:float}>
+     */
+    public static function allocateSupplierPayment(
+        Shop $shop,
+        Supplier $supplier,
+        User $user,
+        float $amount,
+        ?string $paidAt = null,
+        ?string $note = null,
+    ): array {
+        $purchases = $shop->purchases()
             ->where('supplier_id', $supplier->id)
-            ->whereIn('payment_status', ['unpaid', 'partial'])
-            ->latest()
-            ->first();
+            ->where('status', 'completed')
+            ->where('debt_amount', '>', 0)
+            ->orderBy('purchased_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
 
-        if (! $purchase) {
-            return response()->json(['message' => 'Aucun achat en attente de paiement.'], 422);
+        $totalDebt = round((float) $purchases->sum('debt_amount'), 2);
+
+        if ($totalDebt <= 0) {
+            throw ValidationException::withMessages(['amount' => 'Aucune dette à régler pour ce fournisseur.']);
         }
 
-        // SupplierPaymentObserver gère purchase + supplier.balance automatiquement
-        SupplierPayment::create([
-            'purchase_id' => $purchase->id,
-            'amount'      => $request->amount,
-            'paid_at'     => $request->paid_at ?? now(),
-            'note'        => $request->note,
-        ]);
+        if (round($amount, 2) > $totalDebt) {
+            throw ValidationException::withMessages(['amount' => "Montant supérieur à la dette ({$totalDebt})."]);
+        }
 
-        return response()->json(new SupplierResource($supplier->fresh()), 201);
+        $remaining   = round($amount, 2);
+        $allocations = [];
+
+        foreach ($purchases as $purchase) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $part = min($remaining, (float) $purchase->debt_amount);
+
+            SupplierPayment::create([
+                'purchase_id' => $purchase->id,
+                'supplier_id' => $supplier->id,
+                'user_id'     => $user->id,
+                'amount'      => $part,
+                'paid_at'     => $paidAt ?? now()->toDateString(),
+                'note'        => $note,
+            ]);
+
+            $allocations[] = ['purchase_id' => $purchase->id, 'amount' => $part];
+            $remaining     = round($remaining - $part, 2);
+        }
+
+        return $allocations;
     }
 }

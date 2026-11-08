@@ -72,11 +72,17 @@ class SubscriptionPlanResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // La FK subscriptions.subscription_plan_id est en cascade : on interdit
+                // la suppression d'un forfait utilisé (sinon ses abonnements disparaissent).
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn($record) => $record->subscriptions()->exists()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->action(fn($records) => $records->each(
+                            fn($plan) => $plan->subscriptions()->exists() ? null : $plan->delete()
+                        )),
                 ]),
             ]);
     }

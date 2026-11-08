@@ -73,14 +73,28 @@ class WalletTransactionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    // Journal comptable : append-only. Une erreur se corrige par une transaction inverse.
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
     }
 
     public static function getPages(): array
@@ -89,7 +103,6 @@ class WalletTransactionResource extends Resource
             'index' => Pages\ListWalletTransactions::route('/'),
             'create' => Pages\CreateWalletTransaction::route('/create'),
             'view' => Pages\ViewWalletTransaction::route('/{record}'),
-            'edit' => Pages\EditWalletTransaction::route('/{record}/edit'),
         ];
     }
 

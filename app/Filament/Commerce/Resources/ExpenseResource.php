@@ -124,7 +124,7 @@ class ExpenseResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('expense_category_id')
                     ->label('Catégorie')
-                    ->relationship('category', 'name'),
+                    ->relationship('category', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()?->getKey())),
 
                 Tables\Filters\Filter::make('today')
                     ->label("Aujourd'hui")

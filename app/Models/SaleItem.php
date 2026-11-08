@@ -38,7 +38,7 @@ class SaleItem extends Model
 
             if ($item->discount_type && (float) $item->discount_value > 0) {
                 $item->discount_amount = $item->discount_type === 'percent'
-                    ? round($base * (float) $item->discount_value / 100, 2)
+                    ? round($base * min(100, (float) $item->discount_value) / 100, 2)
                     : min(round((float) $item->discount_value, 2), $base);
             } else {
                 $item->discount_amount = 0;

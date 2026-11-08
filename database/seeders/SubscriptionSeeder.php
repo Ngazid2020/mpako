@@ -46,7 +46,8 @@ class SubscriptionSeeder extends Seeder
                 ['shop_id' => $shop->id],
                 [
                     'balance' => 5000,
-                    'is_active' => true,
+                    'is_active' => false, // Désactivé par défaut, sera activé après validation
+                    'status' => 'draft', // Statut initial : brouillon
                     'notes' => 'Portefeuille initial pour ' . $shop->name,
                 ]
             );

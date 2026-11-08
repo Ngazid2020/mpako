@@ -178,10 +178,16 @@ class EmployeeResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Retirer cet employé ?')
                     ->modalDescription('Il ne pourra plus accéder à ce commerce.')
-                    ->visible(fn(User $record) => !$record->hasRole('owner'))
-                    ->action(function (User $record) {
-                        $shop = Filament::getTenant();
-                        $shop->members()->detach($record->id);
+                    ->visible(fn(User $record) => !$record->hasRole('owner') && $record->shops()->exists())
+                    // Panel admin = pas de tenant courant : on choisit explicitement le commerce
+                    ->form(fn(User $record) => [
+                        \Filament\Forms\Components\Select::make('shop_id')
+                            ->label('Commerce')
+                            ->options($record->shops()->pluck('shops.name', 'shops.id'))
+                            ->required(),
+                    ])
+                    ->action(function (User $record, array $data) {
+                        $record->shops()->detach($data['shop_id']);
 
                         Notification::make()
                             ->title('Employé retiré')

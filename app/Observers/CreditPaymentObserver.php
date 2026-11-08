@@ -2,42 +2,40 @@
 
 namespace App\Observers;
 
+use App\Models\Credit;
 use App\Models\CreditPayment;
 
 class CreditPaymentObserver
 {
     /**
-     * Quand un remboursement est enregistré :
-     * 1. Mettre à jour paid_amount et remaining_amount du crédit
-     * 2. Changer le statut du crédit si nécessaire
-     * 3. Réduire la balance du client
+     * Le montant stocké est plafonné au reste dû AVANT insertion :
+     * ainsi `deleted` peut annuler exactement ce qui a été appliqué
+     * (avant : un trop-perçu supprimé gonflait la balance client).
+     */
+    public function creating(CreditPayment $payment): void
+    {
+        $credit = Credit::whereKey($payment->credit_id)->lockForUpdate()->firstOrFail();
+
+        if ((float) $credit->remaining_amount <= 0) {
+            throw new \RuntimeException("Le crédit {$credit->reference} est déjà soldé.");
+        }
+
+        $payment->amount  = min((float) $payment->amount, (float) $credit->remaining_amount);
+        $payment->user_id ??= auth()->id() ?? $credit->user_id;
+    }
+
+    /**
+     * 1. Met à jour paid_amount / remaining_amount / status du crédit
+     * 2. Réduit la balance du client
      */
     public function created(CreditPayment $payment): void
     {
         $credit = $payment->credit;
+        $amount = (float) $payment->amount;
 
-        // Borner au montant réellement dû (défense contre overpayment)
-        $effective = min((float) $payment->amount, (float) $credit->remaining_amount);
+        $this->applyToCredit($credit, (float) $credit->paid_amount + $amount);
 
-        // ── Mettre à jour les montants du crédit ──
-        $newPaidAmount      = (float) $credit->paid_amount + $effective;
-        $newRemainingAmount = max(0, (float) $credit->total_amount - $newPaidAmount);
-
-        // ── Déterminer le nouveau statut ──
-        $newStatus = match(true) {
-            $newRemainingAmount <= 0 => 'paid',
-            $newPaidAmount > 0      => 'partial',
-            default                  => 'pending',
-        };
-
-        $credit->update([
-            'paid_amount'      => $newPaidAmount,
-            'remaining_amount' => $newRemainingAmount,
-            'status'           => $newStatus,
-        ]);
-
-        // ── Réduire la balance du client (montant effectif uniquement) ──
-        $credit->customer->decrement('balance', $effective);
+        $credit->customer->decrement('balance', $amount);
     }
 
     /**
@@ -47,22 +45,25 @@ class CreditPaymentObserver
     {
         $credit = $payment->credit;
 
-        $newPaidAmount      = max(0, (float) $credit->paid_amount - (float) $payment->amount);
-        $newRemainingAmount = (float) $credit->total_amount - $newPaidAmount;
+        if (! $credit) {
+            return; // crédit supprimé en cascade : CreditObserver a déjà traité la balance
+        }
 
-        $newStatus = match(true) {
-            $newRemainingAmount <= 0 => 'paid',
-            $newPaidAmount > 0      => 'partial',
-            default                  => 'pending',
-        };
+        $amount = (float) $payment->amount;
 
-        $credit->update([
+        $this->applyToCredit($credit, max(0, (float) $credit->paid_amount - $amount));
+
+        $credit->customer->increment('balance', $amount);
+    }
+
+    private function applyToCredit(Credit $credit, float $newPaidAmount): void
+    {
+        $newRemaining = max(0, round((float) $credit->total_amount - $newPaidAmount, 2));
+
+        $credit->updateQuietly([
             'paid_amount'      => $newPaidAmount,
-            'remaining_amount' => $newRemainingAmount,
-            'status'           => $newStatus,
+            'remaining_amount' => $newRemaining,
+            'status'           => Credit::deriveStatus($newPaidAmount, $newRemaining),
         ]);
-
-        // ── Restaurer la balance du client ──
-        $credit->customer->increment('balance', $payment->amount);
     }
 }

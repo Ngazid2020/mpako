@@ -7,111 +7,84 @@ use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Cycle de vie d'un achat :
+ *
+ *   pending ──(complete)──▶ completed ──(cancel)──▶ cancelled
+ *      └────────────(cancel)─────────────────────▶ cancelled
+ *
+ * - pending → completed : entrée en stock, buy_price, +dette fournisseur
+ * - completed → cancelled : sortie de stock compensatoire, −dette restante fournisseur
+ * - pending → cancelled : aucune incidence stock/fournisseur (la dette n'a jamais été comptée)
+ *
+ * ⚠️ Un achat doit être créé en 'pending' puis validé APRÈS l'enregistrement de ses lignes
+ *    (voir CreatePurchase::afterCreate et SyncController::createPurchase).
+ */
 class PurchaseObserver
 {
-    // ═══════════════════════════════════════════════
-    // ÉVÉNEMENTS DE CYCLE DE VIE
-    // ═══════════════════════════════════════════════
-
-    /**
-     * Quand un achat passe de 'pending' à 'completed'
-     * → On met à jour le stock et la balance fournisseur
-     */
-    public function updated(Purchase $purchase): void
-    {
-        // On agit uniquement quand le statut passe à 'completed'
-        if (!$this->isTransitionToCompleted($purchase)) {
-            return;
-        }
-
-        $this->processPurchase($purchase);
-    }
-
-    /**
-     * Si l'achat est créé directement en 'completed'
-     */
     public function created(Purchase $purchase): void
     {
+        // Cas résiduel (seeders/scripts) : création directe en 'completed' avec lignes déjà présentes.
         if ($purchase->status === 'completed') {
             $this->processPurchase($purchase);
         }
     }
 
-    /**
-     * Si un achat complété est annulé
-     * → On libère le stock (mouvement de sortie compensatoire)
-     *
-     * ⚠️ La balance fournisseur est gérée par la Resource (action cancel)
-     *    pour éviter le double comptage.
-     */
-    public function updating(Purchase $purchase): void
+    public function updated(Purchase $purchase): void
     {
-        if (!$this->isTransitionToCancelled($purchase)) {
+        if (! $purchase->wasChanged('status')) {
             return;
         }
 
-        $this->reversePurchase($purchase);
+        $from = $purchase->getOriginal('status');
+        $to   = $purchase->status;
+
+        if ($to === 'completed' && $from !== 'completed') {
+            $this->processPurchase($purchase);
+        } elseif ($to === 'cancelled' && $from !== 'cancelled') {
+            $this->cancelPurchase($purchase, wasCompleted: $from === 'completed');
+        }
     }
 
-    // ═══════════════════════════════════════════════
-    // DÉTECTION DE TRANSITION
-    // ═══════════════════════════════════════════════
-
     /**
-     * Détecte le passage à 'completed' depuis autre chose
+     * Un achat validé ne se supprime pas (il faut l'annuler) : sinon stock et dette
+     * fournisseur resteraient gonflés. Retourner false annule la suppression.
      */
-    private function isTransitionToCompleted(Purchase $purchase): bool
+    public function deleting(Purchase $purchase): bool
     {
-        return $purchase->isDirty('status')
-            && $purchase->status === 'completed'
-            && $purchase->getOriginal('status') !== 'completed';
-    }
+        if ($purchase->status === 'completed') {
+            Log::warning("Suppression refusée de l'achat validé {$purchase->reference} (utiliser l'annulation).");
 
-    /**
-     * Détecte le passage à 'cancelled' depuis 'completed'
-     * (Seul ce cas nécessite de libérer le stock)
-     */
-    private function isTransitionToCancelled(Purchase $purchase): bool
-    {
-        return $purchase->isDirty('status')
-            && $purchase->status === 'cancelled'
-            && $purchase->getOriginal('status') === 'completed';
+            return false;
+        }
+
+        return true;
     }
 
     // ═══════════════════════════════════════════════
-    // TRAITEMENT : Validation d'un achat
+    // Validation
     // ═══════════════════════════════════════════════
 
-    /**
-     * Traitement principal lors de la validation d'un achat
-     *
-     * Étapes :
-     * 1. Créer des mouvements de stock 'in' pour chaque produit
-     * 2. Mettre à jour le prix d'achat (dernier connu)
-     * 3. Mettre à jour la balance du fournisseur (si dette)
-     *
-     * Le tout dans une transaction pour garantir la cohérence.
-     */
     private function processPurchase(Purchase $purchase): void
     {
-        // Charger les relations nécessaires
-        $purchase->load('items.product');
+        $purchase->load('items.product', 'supplier');
 
-        // Vérifier qu'il y a des items à traiter
         if ($purchase->items->isEmpty()) {
             Log::warning("Purchase {$purchase->reference} validé sans items");
+
             return;
         }
 
-        // Transaction pour garantir la cohérence
         DB::transaction(function () use ($purchase) {
-
-            // ── 1. Traiter chaque item ──
             foreach ($purchase->items as $item) {
-
-                // Sécurité : vérifier que le produit existe encore
-                if (!$item->product) {
+                if (! $item->product) {
                     Log::error("Item {$item->id} sans produit lors de la validation Purchase {$purchase->reference}");
+                    continue;
+                }
+
+                // Anti fuite cross-tenant : jamais de mouvement sur le produit d'un autre shop
+                if ($item->product->shop_id !== $purchase->shop_id) {
+                    Log::error("Item {$item->id} : produit d'un autre commerce ignoré (Purchase {$purchase->reference})");
                     continue;
                 }
 
@@ -119,7 +92,6 @@ class PurchaseObserver
                 $convQty    = max(1, (float) ($item->conversion_qty ?? 1));
                 $stockUnits = $item->quantity * $convQty;
 
-                // Créer le mouvement de stock entrant
                 StockMovement::create([
                     'shop_id'    => $purchase->shop_id,
                     'product_id' => $item->product_id,
@@ -129,63 +101,49 @@ class PurchaseObserver
                     'reason'     => "Achat {$purchase->reference}" . ($convQty > 1 ? " ({$item->quantity} colis × {$convQty})" : ''),
                 ]);
 
-                // Mettre à jour le prix d'achat par unité de détail — même shop uniquement
-                if ($item->product->shop_id === $purchase->shop_id) {
-                    $costPerUnit = round($item->unit_cost / $convQty, 2);
-                    $item->product->update(['buy_price' => $costPerUnit]);
-                }
+                // Prix d'achat par unité de détail (dernier prix connu)
+                $item->product->update(['buy_price' => round($item->unit_cost / $convQty, 2)]);
             }
 
-            // ── 2. Mettre à jour la balance fournisseur ──
-            if ($purchase->supplier_id && $purchase->debt_amount > 0) {
+            if ($purchase->supplier_id && (float) $purchase->debt_amount > 0) {
                 $purchase->supplier->increment('balance', $purchase->debt_amount);
             }
         });
     }
 
     // ═══════════════════════════════════════════════
-    // TRAITEMENT : Annulation d'un achat
+    // Annulation
     // ═══════════════════════════════════════════════
 
-    /**
-     * Inverse les effets d'un achat validé
-     *
-     * Étapes :
-     * 1. Créer des mouvements de stock 'out' pour chaque produit
-     *    (compense l'entrée précédente)
-     *
-     * ⚠️ La balance fournisseur n'est PAS modifiée ici
-     *    car c'est géré dans la Resource (action 'cancel')
-     */
-    private function reversePurchase(Purchase $purchase): void
+    private function cancelPurchase(Purchase $purchase, bool $wasCompleted): void
     {
-        $purchase->load('items');
+        DB::transaction(function () use ($purchase, $wasCompleted) {
+            if ($wasCompleted) {
+                $purchase->load('items', 'supplier');
 
-        if ($purchase->items->isEmpty()) {
-            return;
-        }
+                foreach ($purchase->items as $item) {
+                    $convQty = max(1, (float) ($item->conversion_qty ?? 1));
 
-        DB::transaction(function () use ($purchase) {
+                    StockMovement::create([
+                        'shop_id'    => $purchase->shop_id,
+                        'product_id' => $item->product_id,
+                        'user_id'    => auth()->id() ?? $purchase->user_id,
+                        'type'       => 'out',
+                        'quantity'   => $item->quantity * $convQty,
+                        'reason'     => "Annulation achat {$purchase->reference}",
+                    ]);
+                }
 
-            foreach ($purchase->items as $item) {
-                $convQty    = max(1, (float) ($item->conversion_qty ?? 1));
-                $stockUnits = $item->quantity * $convQty;
-
-                StockMovement::create([
-                    'shop_id'    => $purchase->shop_id,
-                    'product_id' => $item->product_id,
-                    'user_id'    => auth()->id() ?? $purchase->user_id,
-                    'type'       => 'out',
-                    'quantity'   => $stockUnits,
-                    'reason'     => "Annulation achat {$purchase->reference}",
-                ]);
+                // La dette restante avait été ajoutée au fournisseur à la validation
+                if ($purchase->supplier_id && (float) $purchase->debt_amount > 0) {
+                    $purchase->supplier->decrement('balance', $purchase->debt_amount);
+                }
             }
 
-            // Remettre les montants à zéro — requête directe pour éviter la boucle observer
+            // Plus aucune dette sur un achat annulé — requête directe pour éviter la boucle observer
             Purchase::whereKey($purchase->id)->update([
-                'paid_amount'    => 0,
                 'debt_amount'    => 0,
-                'payment_status' => 'unpaid',
+                'payment_status' => (float) $purchase->paid_amount > 0 ? 'partial' : 'unpaid',
             ]);
         });
     }

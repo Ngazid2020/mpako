@@ -593,7 +593,7 @@ class PurchaseResource extends Resource
 
                 Tables\Filters\SelectFilter::make('supplier')
                     ->label('Fournisseur')
-                    ->relationship('supplier', 'name')
+                    ->relationship('supplier', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()?->getKey()))
                     ->searchable()
                     ->preload(),
 
@@ -622,7 +622,25 @@ class PurchaseResource extends Resource
                         ->modalIconColor('success')
                         ->visible(fn(Purchase $record): bool => $record->status === 'pending')
                         ->action(function (Purchase $record): void {
-                            $record->update(['status' => 'completed']);
+                            // Verrou + re-vérification : deux clics simultanés ne doivent pas
+                            // doubler l'entrée en stock et la dette fournisseur.
+                            $done = DB::transaction(function () use ($record) {
+                                $fresh = Purchase::whereKey($record->id)->lockForUpdate()->first();
+
+                                if ($fresh?->status !== 'pending') {
+                                    return false;
+                                }
+
+                                $fresh->update(['status' => 'completed']);
+
+                                return true;
+                            });
+
+                            if (! $done) {
+                                Notification::make()->title('Achat déjà traité')->warning()->send();
+
+                                return;
+                            }
 
                             Notification::make()
                                 ->title('✅ Achat validé')
@@ -745,11 +763,8 @@ class PurchaseResource extends Resource
                             in_array($record->status, ['pending', 'completed'])
                         )
                         ->action(function (Purchase $record): void {
-                            // FIX : Libérer la dette fournisseur lors de l'annulation
-                            if ($record->supplier_id && $record->debt_amount > 0) {
-                                $record->supplier->decrement('balance', $record->debt_amount);
-                            }
-
+                            // Stock ET dette fournisseur sont gérés par PurchaseObserver::cancelPurchase
+                            // (la dette n'est retirée que si l'achat était validé).
                             $record->update(['status' => 'cancelled']);
 
                             Notification::make()
@@ -766,8 +781,20 @@ class PurchaseResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    // Les achats validés sont ignorés (PurchasePolicy::delete + PurchaseObserver::deleting)
                     Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn() => auth()->user()?->can('delete_any_purchase') ?? false),
+                        ->visible(fn() => auth()->user()?->can('delete_any_purchase') ?? false)
+                        ->action(function (\Illuminate\Support\Collection $records): void {
+                            $skipped = $records->where('status', 'completed')->count();
+
+                            $records->where('status', '!=', 'completed')->each->delete();
+
+                            $notification = Notification::make()->title('Achats supprimés')->success();
+                            if ($skipped > 0) {
+                                $notification->body("{$skipped} achat(s) validé(s) ignoré(s) : utilisez « Annuler ».")->warning();
+                            }
+                            $notification->send();
+                        }),
                 ]),
             ])
             ->emptyStateHeading('Aucun achat enregistré')

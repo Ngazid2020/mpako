@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Commerce;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithShop;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\CreditResource;
 use App\Http\Resources\Api\CustomerResource;
@@ -12,24 +13,39 @@ use App\Models\CreditPayment;
 use App\Models\Expense;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
-use App\Models\Sale;
-use App\Models\SaleItem;
 use App\Models\StockMovement;
 use App\Models\SupplierPayment;
+use App\Models\SyncOperation;
+use App\Services\SaleRecorder;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class SyncController extends Controller
 {
+    use InteractsWithShop;
+
     /**
      * Sync descendante — envoie tout ce qui a changé depuis `?since=` (ISO timestamp).
      * Sans `since` → snapshot complet (premier démarrage).
      */
     public function pull(Request $request): JsonResponse
     {
-        $shop  = $request->attributes->get('shop');
+        $shop  = $this->shop($request);
         $since = $request->query('since');
+
+        // Horodatage capturé AVANT les requêtes : une écriture concurrente pendant le pull
+        // sera renvoyée au prochain pull au lieu d'être perdue.
+        $syncedAt = now()->toISOString();
+
+        // Snapshot complet : on limite l'historique ; en incrémental on renvoie TOUT ce qui a changé
+        // (une limite ferait perdre définitivement les lignes au-delà, le client avançant `since`).
+        $historyLimit = $since ? null : 200;
 
         $query = fn($relation) => $since
             ? $shop->$relation()->where('updated_at', '>', $since)
@@ -52,7 +68,7 @@ class SyncController extends Controller
             ->with(['items', 'supplier'])
             ->when($since, fn($q) => $q->where('updated_at', '>=', $since))
             ->latest()
-            ->limit(200)
+            ->when($historyLimit, fn($q) => $q->limit($historyLimit))
             ->get()
             ->map(fn($pur) => [
                 'id'             => $pur->id,
@@ -78,7 +94,7 @@ class SyncController extends Controller
             ->with('category')
             ->when($since, fn($q) => $q->where('updated_at', '>=', $since))
             ->latest()
-            ->limit(200)
+            ->when($historyLimit, fn($q) => $q->limit($historyLimit))
             ->get()
             ->map(fn($e) => [
                 'id'                  => $e->id,
@@ -95,7 +111,7 @@ class SyncController extends Controller
             ->with('product')
             ->when($since, fn($q) => $q->where('created_at', '>=', $since))
             ->latest()
-            ->limit(200)
+            ->when($historyLimit, fn($q) => $q->limit($historyLimit))
             ->get()
             ->map(fn($m) => [
                 'id'           => $m->id,
@@ -121,7 +137,7 @@ class SyncController extends Controller
                 'credit_payments.created_at',
             ])
             ->latest('credit_payments.created_at')
-            ->limit(200)
+            ->when($historyLimit, fn($q) => $q->limit($historyLimit))
             ->get()
             ->map(fn($cp) => [
                 'id'         => $cp->id,
@@ -152,25 +168,44 @@ class SyncController extends Controller
             'expense_categories' => $shop->expenseCategories()
                 ->get()
                 ->map(fn($ec) => ['id' => $ec->id, 'name' => $ec->name]),
-            'synced_at'          => now()->toISOString(),
+            'synced_at'          => $syncedAt,
         ]);
     }
 
     /**
+     * Permissions requises par type d'opération (au moins une).
+     * Mêmes noms que les Policies Filament (Shield).
+     */
+    private const OPERATION_PERMISSIONS = [
+        'create_sale'             => ['create_sale'],
+        'create_credit'           => ['create_credit'],
+        'create_credit_payment'   => ['create_credit', 'update_credit'],
+        'create_stock_adjustment' => ['create_stock::movement'],
+        'create_purchase'         => ['create_purchase'],
+        'create_expense'          => ['create_expense'],
+        'pay_supplier'            => ['update_supplier', 'update_purchase'],
+        'complete_purchase'       => ['update_purchase'],
+        'pay_purchase'            => ['update_purchase', 'update_supplier'],
+    ];
+
+    /**
      * Sync montante — reçoit un tableau d'opérations offline et les exécute dans l'ordre.
      * Les observers existants maintiennent la cohérence (stock, balances, etc.).
+     *
+     * Idempotence : chaque (shop_id, local_id) n'est exécuté qu'une fois ; un renvoi
+     * (réponse perdue, retry réseau) retourne le résultat déjà enregistré.
      */
     public function push(Request $request): JsonResponse
     {
         $request->validate([
-            'operations'                    => 'required|array',
-            'operations.*.type'             => 'required|string',
-            'operations.*.local_id'         => 'required|string',
-            'operations.*.payload'          => 'required|array',
+            'operations'                      => 'required|array|max:500',
+            'operations.*.type'               => 'required|string',
+            'operations.*.local_id'           => 'required|string|max:100',
+            'operations.*.payload'            => 'required|array',
             'operations.*.created_offline_at' => 'required|string',
         ]);
 
-        $shop    = $request->attributes->get('shop');
+        $shop    = $this->shop($request);
         $user    = $request->user();
         $results = [];
 
@@ -185,23 +220,52 @@ class SyncController extends Controller
 
         foreach ($operations as $op) {
             try {
-                // Snapshot du mapping au moment de l'exécution (passé par valeur dans la closure)
-                $idMap = $rowIdToServerId;
+                // ── Déjà traité ? → renvoyer le résultat stocké ──
+                $already = SyncOperation::where('shop_id', $shop->id)
+                    ->where('local_id', $op['local_id'])
+                    ->first();
 
-                $result = DB::transaction(function () use ($op, $shop, $user, $idMap) {
-                    return match ($op['type']) {
-                        'create_sale'             => $this->createSale($op, $shop, $user),
-                        'create_credit'           => $this->createCredit($op, $shop, $user),
-                        'create_credit_payment'   => $this->createCreditPayment($op, $shop, $user),
-                        'create_stock_adjustment' => $this->createStockAdjustment($op, $shop, $user),
-                        'create_purchase'         => $this->createPurchase($op, $shop, $user),
-                        'create_expense'          => $this->createExpense($op, $shop, $user),
-                        'pay_supplier'            => $this->paySupplier($op, $shop, $user),
-                        'complete_purchase'       => $this->completePurchase($op, $shop, $idMap),
-                        'pay_purchase'            => $this->payPurchase($op, $shop, $user, $idMap),
-                        default                   => throw new \InvalidArgumentException("Type inconnu : {$op['type']}"),
-                    };
-                });
+                if ($already) {
+                    $result = $already->result ?? [];
+                } else {
+                    $permissions = self::OPERATION_PERMISSIONS[$op['type']] ?? null;
+
+                    if ($permissions === null) {
+                        throw new \InvalidArgumentException("Type inconnu : {$op['type']}");
+                    }
+
+                    if (! static::userCanAny($user, $permissions)) {
+                        throw new AuthorizationException('Action non autorisée pour votre rôle.');
+                    }
+
+                    // Snapshot du mapping au moment de l'exécution (passé par valeur dans la closure)
+                    $idMap = $rowIdToServerId;
+
+                    $result = DB::transaction(function () use ($op, $shop, $user, $idMap) {
+                        $result = match ($op['type']) {
+                            'create_sale'             => $this->createSale($op, $shop, $user),
+                            'create_credit'           => $this->createCredit($op, $shop, $user),
+                            'create_credit_payment'   => $this->createCreditPayment($op, $shop, $user),
+                            'create_stock_adjustment' => $this->createStockAdjustment($op, $shop, $user),
+                            'create_purchase'         => $this->createPurchase($op, $shop, $user),
+                            'create_expense'          => $this->createExpense($op, $shop, $user),
+                            'pay_supplier'            => $this->paySupplier($op, $shop, $user),
+                            'complete_purchase'       => $this->completePurchase($op, $shop, $idMap),
+                            'pay_purchase'            => $this->payPurchase($op, $shop, $user, $idMap),
+                        };
+
+                        // Journalisé dans la même transaction : soit tout est appliqué, soit rien
+                        SyncOperation::create([
+                            'shop_id'  => $shop->id,
+                            'user_id'  => $user->id,
+                            'local_id' => $op['local_id'],
+                            'type'     => $op['type'],
+                            'result'   => $result,
+                        ]);
+
+                        return $result;
+                    });
+                }
 
                 // Après create_purchase réussi : enregistrer le mapping rowid → id serveur
                 if ($op['type'] === 'create_purchase'
@@ -219,12 +283,38 @@ class SyncController extends Controller
                 $results[] = [
                     'local_id' => $op['local_id'],
                     'status'   => 'failed',
-                    'error'    => $e->getMessage(),
+                    'error'    => $this->publicErrorMessage($e),
                 ];
             }
         }
 
         return response()->json(['results' => $results]);
+    }
+
+    /**
+     * Message renvoyé au mobile : on expose les erreurs métier, jamais le SQL/stack interne.
+     */
+    private function publicErrorMessage(\Throwable $e): string
+    {
+        if ($e instanceof ValidationException) {
+            return collect($e->errors())->flatten()->first() ?? 'Données invalides.';
+        }
+
+        if ($e instanceof ModelNotFoundException) {
+            return 'Élément introuvable dans ce commerce.';
+        }
+
+        $isBusinessError = $e instanceof AuthorizationException
+            || $e instanceof \InvalidArgumentException
+            || ($e instanceof \RuntimeException && ! $e instanceof QueryException);
+
+        if ($isBusinessError) {
+            return $e->getMessage();
+        }
+
+        Log::error('Sync push failure', ['exception' => $e]);
+
+        return 'Erreur serveur lors de la synchronisation.';
     }
 
     // ─── Handlers individuels ───────────────────────────────────────────
@@ -233,79 +323,38 @@ class SyncController extends Controller
     {
         $p = $op['payload'];
 
-        $sale = Sale::create([
-            'shop_id'       => $shop->id,
-            'user_id'       => $user->id,
-            'customer_id'   => $p['customer_id'] ?? null,
-            'payment_type'  => $p['payment_type'] ?? 'cash',
-            'reference'     => Sale::generateReference($shop->id),
-            'status'        => 'completed',
-            'total_amount'  => $p['total_amount'],
-            'paid_amount'   => $p['paid_amount'] ?? $p['total_amount'],
-            'change_amount' => $p['change_amount'] ?? 0,
-            'note'          => $p['note'] ?? null,
-        ]);
-
-        foreach ($p['items'] as $item) {
-            SaleItem::create([
-                'sale_id'      => $sale->id,
-                'product_id'   => $item['product_id'],
-                'product_name' => $item['product_name'],
-                'quantity'     => $item['quantity'],
-                'unit_price'   => $item['unit_price'],
-                'subtotal'     => $item['subtotal'],
-            ]);
-
-            // Le StockMovementObserver gère stock_qty automatiquement
-            StockMovement::create([
-                'shop_id'    => $shop->id,
-                'product_id' => $item['product_id'],
-                'user_id'    => $user->id,
-                'type'       => 'out',
-                'quantity'   => $item['quantity'],
-                'reason'     => "Vente {$sale->reference} (sync offline)",
-            ]);
+        if (($p['payment_type'] ?? 'cash') === 'credit' && ! static::userCanAny($user, ['create_credit'])) {
+            throw new AuthorizationException('Vente à crédit non autorisée pour votre rôle.');
         }
 
-        // Vente à crédit — créer le Credit et mettre à jour la balance client
-        if (($p['payment_type'] ?? 'cash') === 'credit' && !empty($p['customer_id'])) {
-            Credit::create([
-                'shop_id'          => $shop->id,
-                'sale_id'          => $sale->id,
-                'customer_id'      => $p['customer_id'],
-                'user_id'          => $user->id,
-                'reference'        => Credit::generateReference($shop->id),
-                'status'           => 'pending',
-                'total_amount'     => $p['total_amount'],
-                'paid_amount'      => 0,
-                'remaining_amount' => $p['total_amount'],
-                'due_date'         => $p['credit']['due_date'] ?? null,
-                'description'      => "Vente à crédit {$sale->reference} (sync offline)",
-                'note'             => $p['credit']['note'] ?? null,
-            ]);
-            // CreditObserver met à jour customer.balance automatiquement
-        }
+        // La vente a déjà eu lieu physiquement hors-ligne : pas de refus pour stock insuffisant
+        $sale = app(SaleRecorder::class)->record($shop, $user, $p, strictStock: false, reasonSuffix: '(sync offline)');
 
-        return ['id' => $sale->id, 'reference' => $sale->reference];
+        return ['id' => $sale->id, 'reference' => $sale->reference, 'total_amount' => (float) $sale->total_amount];
     }
 
     private function createCredit(array $op, $shop, $user): array
     {
         $p = $op['payload'];
 
-        // Récupérer le sale_id officiel via local_sale_id si fourni
-        $saleId = $p['sale_id'] ?? null;
+        $customer = $shop->customers()->findOrFail($p['customer_id'] ?? 0);
+        $saleId   = ! empty($p['sale_id']) ? $shop->sales()->findOrFail($p['sale_id'])->id : null;
+        $total    = (float) ($p['total_amount'] ?? 0);
+
+        if ($total <= 0) {
+            throw ValidationException::withMessages(['total_amount' => 'Le montant du crédit doit être positif.']);
+        }
 
         $credit = Credit::create([
             'shop_id'          => $shop->id,
             'sale_id'          => $saleId,
-            'customer_id'      => $p['customer_id'],
+            'customer_id'      => $customer->id,
             'user_id'          => $user->id,
             'reference'        => Credit::generateReference($shop->id),
             'status'           => 'pending',
-            'total_amount'     => $p['total_amount'],
+            'total_amount'     => $total,
             'paid_amount'      => 0,
-            'remaining_amount' => $p['total_amount'],
+            'remaining_amount' => $total,
             'due_date'         => $p['due_date'] ?? null,
             'description'      => $p['description'] ?? 'Crédit enregistré hors ligne',
             'note'             => $p['note'] ?? null,
@@ -320,27 +369,46 @@ class SyncController extends Controller
     {
         $p = $op['payload'];
 
-        $credit = $shop->credits()->findOrFail($p['credit_id']);
+        $credit = $shop->credits()->lockForUpdate()->findOrFail($p['credit_id'] ?? 0);
+        $amount = (float) ($p['amount'] ?? 0);
+
+        if ($amount <= 0) {
+            throw ValidationException::withMessages(['amount' => 'Montant invalide.']);
+        }
+
+        if ($credit->status === 'paid' || (float) $credit->remaining_amount <= 0) {
+            return ['credit_id' => $credit->id, 'already_paid' => true];
+        }
+
+        // Paiement plafonné au reste dû
+        $amount = min($amount, (float) $credit->remaining_amount);
 
         $payment = CreditPayment::create([
             'credit_id' => $credit->id,
-            'amount'    => $p['amount'],
-            'paid_at'   => $p['paid_at'] ?? now(),
+            'user_id'   => $user->id,
+            'amount'    => $amount,
+            'paid_at'   => $p['paid_at'] ?? now()->toDateString(),
             'note'      => $p['note'] ?? null,
         ]);
 
         // CreditPaymentObserver met à jour credit + customer.balance automatiquement
 
-        return ['id' => $payment->id, 'credit_id' => $credit->id];
+        return ['id' => $payment->id, 'credit_id' => $credit->id, 'amount' => $amount];
     }
 
     private function createStockAdjustment(array $op, $shop, $user): array
     {
         $p = $op['payload'];
 
+        if (! in_array($p['type'] ?? null, ['in', 'out', 'adjustment'], true)) {
+            throw ValidationException::withMessages(['type' => 'Type de mouvement invalide.']);
+        }
+
+        $product = $shop->products()->lockForUpdate()->findOrFail($p['product_id'] ?? 0);
+
         $movement = StockMovement::create([
             'shop_id'    => $shop->id,
-            'product_id' => $p['product_id'],
+            'product_id' => $product->id,
             'user_id'    => $user->id,
             'type'       => $p['type'], // 'in' | 'out' | 'adjustment'
             'quantity'   => $p['quantity'],
@@ -352,47 +420,78 @@ class SyncController extends Controller
 
     private function createPurchase(array $op, $shop, $user): array
     {
-        $p = $op['payload'];
+        $p     = $op['payload'];
+        $items = collect($p['items'] ?? []);
 
+        if ($items->isEmpty()) {
+            throw ValidationException::withMessages(['items' => 'Achat sans article.']);
+        }
+
+        $supplierId = ! empty($p['supplier_id']) ? $shop->suppliers()->findOrFail($p['supplier_id'])->id : null;
+
+        $productIds = $items->pluck('product_id')->map(fn ($id) => (int) $id)->unique();
+        $products   = $shop->products()->whereIn('id', $productIds)->get()->keyBy('id');
+
+        if ($products->count() !== $productIds->count()) {
+            throw ValidationException::withMessages(['items' => 'Un ou plusieurs produits sont introuvables dans ce commerce.']);
+        }
+
+        $total = round($items->sum(fn ($i) => (float) $i['quantity'] * (float) $i['unit_cost']), 2);
+
+        // Toujours créé en 'pending' : le PurchaseObserver ne peut traiter le stock
+        // qu'une fois les lignes enregistrées.
         $purchase = Purchase::create([
             'shop_id'         => $shop->id,
             'user_id'         => $user->id,
-            'supplier_id'     => $p['supplier_id'] ?? null,
+            'supplier_id'     => $supplierId,
             'reference'       => Purchase::generateReference($shop->id),
-            'status'          => $p['status'] ?? 'pending',
+            'status'          => 'pending',
             'payment_status'  => 'unpaid',
-            'total_amount'    => $p['total_amount'],
+            'total_amount'    => $total,
             'paid_amount'     => 0,
+            'debt_amount'     => $total,
+            'purchased_at'    => $p['purchased_at'] ?? now()->toDateString(),
             'note'            => $p['note'] ?? null,
         ]);
 
-        foreach ($p['items'] as $item) {
+        foreach ($items as $item) {
             PurchaseItem::create([
                 'purchase_id'  => $purchase->id,
-                'product_id'   => $item['product_id'],
-                'product_name' => $item['product_name'] ?? '',
+                'product_id'   => (int) $item['product_id'],
+                'product_name' => $item['product_name'] ?? $products[(int) $item['product_id']]->name,
                 'quantity'     => $item['quantity'],
                 'unit_cost'    => $item['unit_cost'],
-                'subtotal'     => $item['subtotal'],
             ]);
         }
 
-        // PurchaseObserver gère stock si status = 'completed'
+        if (($p['status'] ?? 'pending') === 'completed') {
+            if (! static::userCanAny($user, ['update_purchase'])) {
+                throw new AuthorizationException("Validation d'achat non autorisée pour votre rôle.");
+            }
 
-        return ['id' => $purchase->id, 'reference' => $purchase->reference];
+            // PurchaseObserver::updated → stock, buy_price, supplier.balance
+            $purchase->update(['status' => 'completed']);
+        }
+
+        return ['id' => $purchase->id, 'reference' => $purchase->reference, 'status' => $purchase->status];
     }
 
     private function createExpense(array $op, $shop, $user): array
     {
         $p = $op['payload'];
 
+        $categoryId = ! empty($p['expense_category_id'])
+            ? $shop->expenseCategories()->findOrFail($p['expense_category_id'])->id
+            : null;
+
         $expense = Expense::create([
             'shop_id'             => $shop->id,
             'user_id'             => $user->id,
-            'expense_category_id' => $p['expense_category_id'] ?? null,
-            'description'         => $p['description'] ?? null,
+            'expense_category_id' => $categoryId,
+            'description'         => ($p['description'] ?? null) ?: 'Dépense',
             'amount'              => $p['amount'],
             'spent_at'            => $p['spent_at'] ?? now()->toDateString(),
+            'note'                => $p['note'] ?? null,
         ]);
 
         return ['id' => $expense->id];
@@ -402,26 +501,19 @@ class SyncController extends Controller
     {
         $p = $op['payload'];
 
-        $purchase = $shop->purchases()
-            ->whereIn('payment_status', ['unpaid', 'partial'])
-            ->where('supplier_id', $p['supplier_id'])
-            ->latest()
-            ->first();
+        $supplier = $shop->suppliers()->lockForUpdate()->findOrFail($p['supplier_id'] ?? 0);
 
-        if (! $purchase) {
-            throw new \RuntimeException("Aucun achat impayé trouvé pour ce fournisseur.");
-        }
+        // Répartition FIFO sur les achats validés impayés (même logique que l'API REST)
+        $allocations = SupplierController::allocateSupplierPayment(
+            $shop,
+            $supplier,
+            $user,
+            (float) ($p['amount'] ?? 0),
+            $p['paid_at'] ?? null,
+            $p['note'] ?? null,
+        );
 
-        $payment = SupplierPayment::create([
-            'purchase_id' => $purchase->id,
-            'amount'      => $p['amount'],
-            'paid_at'     => $p['paid_at'] ?? now(),
-            'note'        => $p['note'] ?? null,
-        ]);
-
-        // SupplierPaymentObserver met à jour purchase + supplier.balance automatiquement
-
-        return ['id' => $payment->id, 'purchase_id' => $purchase->id];
+        return ['supplier_id' => $supplier->id, 'allocations' => $allocations];
     }
 
     /**
@@ -447,7 +539,7 @@ class SyncController extends Controller
             throw new \RuntimeException('Impossible de résoudre l\'achat à valider (rowid introuvable).');
         }
 
-        $purchase = $shop->purchases()->findOrFail($purchaseId);
+        $purchase = $shop->purchases()->lockForUpdate()->findOrFail($purchaseId);
 
         // Idempotent : déjà validé → OK sans erreur
         if ($purchase->status === 'completed') {
@@ -485,7 +577,15 @@ class SyncController extends Controller
             throw new \RuntimeException('Impossible de résoudre l\'achat pour le paiement (rowid introuvable).');
         }
 
-        $purchase = $shop->purchases()->findOrFail($purchaseId);
+        $purchase = $shop->purchases()->lockForUpdate()->findOrFail($purchaseId);
+
+        if ($purchase->status !== 'completed') {
+            throw new \RuntimeException("Seul un achat validé peut être payé (statut : {$purchase->status}).");
+        }
+
+        if (! $purchase->supplier_id) {
+            throw new \RuntimeException('Achat sans fournisseur : aucune dette à régler.');
+        }
 
         if ((float) $purchase->debt_amount <= 0) {
             return ['id' => $purchase->id, 'already_paid' => true];

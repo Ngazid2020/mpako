@@ -207,7 +207,7 @@ class Benefice extends Page
         $profits = [];
 
         for ($i = 5; $i >= 0; $i--) {
-            $date  = now()->subMonths($i);
+            $date  = now()->startOfMonth()->subMonthsNoOverflow($i);
             $start = $date->copy()->startOfMonth();
             $end   = $date->copy()->endOfMonth();
 

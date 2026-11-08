@@ -2,6 +2,10 @@
 
 namespace App\Filament\Admin\Resources;
 
+use App\Enums\WalletStatus;
+use App\Filament\Admin\Resources\WalletResource\Actions\ApproveAction;
+use App\Filament\Admin\Resources\WalletResource\Actions\RejectAction;
+use App\Filament\Admin\Resources\WalletResource\Actions\SubmitAction;
 use App\Filament\Admin\Resources\WalletResource\Pages;
 use App\Filament\Admin\Resources\WalletResource\RelationManagers;
 use App\Models\Wallet;
@@ -32,17 +36,31 @@ class WalletResource extends Resource
                         ->label('Commerce')
                         ->options(\App\Models\Shop::query()->pluck('name', 'id'))
                         ->required()
+                        // Un seul portefeuille par commerce (Shop::wallet() est un hasOne)
+                        ->unique(ignoreRecord: true)
+                        ->disabled(fn(?\App\Models\Wallet $record) => $record !== null)
                         ->searchable()
                         ->preload(),
+                    // Le solde ne change QUE via des transactions (journal) : jamais saisi à la main
                     Forms\Components\TextInput::make('balance')
                         ->label('Solde (KMF)')
                         ->numeric()
-                        ->required()
-                        ->minValue(0)
-                        ->suffix('KMF'),
+                        ->default(0)
+                        ->suffix('KMF')
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->helperText('Utilisez « Recharger » pour créditer le portefeuille.'),
                     Forms\Components\Toggle::make('is_active')
                         ->label('Actif')
                         ->default(true),
+                    Forms\Components\Select::make('status')
+                        ->label('Statut')
+                        ->options(WalletStatus::options())
+                        ->default('draft')
+                        // Le statut suit le workflow (Soumettre / Approuver / Rejeter)
+                        ->disabled()
+                        ->dehydrated(fn(?\App\Models\Wallet $record) => $record === null)
+                        ->native(false),
                     Forms\Components\Textarea::make('notes')
                         ->label('Notes')
                         ->rows(2)
@@ -62,20 +80,36 @@ class WalletResource extends Resource
                     ->label('Solde')
                     ->money('KMF')
                     ->color(fn($state) => $state >= 1000 ? 'success' : ($state > 0 ? 'warning' : 'danger')),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Statut')
+                    ->badge(),
                 Tables\Columns\IconColumn::make('is_active')->label('Actif')->boolean(),
+                Tables\Columns\TextColumn::make('submitted_at')
+                    ->label('Soumis le')
+                    ->dateTime('d/m/Y H:i')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('validated_at')
+                    ->label('Validé le')
+                    ->dateTime('d/m/Y H:i')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Créé le')
                     ->dateTime('d/m/Y'),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Actif'),
+                Tables\Filters\SelectFilter::make('status')
                     ->label('Statut')
-                    ->trueLabel('Actifs')
-                    ->falseLabel('Inactifs'),
+                    ->options(WalletStatus::options())
+                    ->default(null),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                SubmitAction::make(),
+                ApproveAction::make(),
+                RejectAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

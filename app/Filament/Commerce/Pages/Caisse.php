@@ -176,6 +176,8 @@ class Caisse extends Page
 
             $this->cart[$productId]['quantity'] = $newQty;
             $this->cart[$productId]['subtotal']  = $newQty * $this->cart[$productId]['unit_price'];
+            // La remise de la ligne doit être ré-appliquée sur la nouvelle quantité
+            $this->recalculateItemDiscount($productId);
         } else {
             // Nouveau produit dans le panier
             $this->cart[$productId] = [
@@ -236,13 +238,52 @@ class Caisse extends Page
         }
     }
 
+    /**
+     * SÉCURITÉ : $cart est un tableau Livewire public, donc modifiable côté navigateur
+     * ($wire.set('cart.12.unit_price', 1)). Avant tout encaissement on reconstruit
+     * chaque ligne à partir du prix en base, et on recalcule remises et sous-totaux.
+     */
+    private function rebuildCartFromDatabase(): void
+    {
+        $shop     = Filament::getTenant();
+        $products = $shop->products()
+            ->whereIn('id', array_map('intval', array_keys($this->cart)))
+            ->get()
+            ->keyBy('id');
+
+        foreach ($this->cart as $productId => $item) {
+            $product = $products->get((int) $productId);
+
+            if (! $product || (int) ($item['product_id'] ?? 0) !== (int) $productId) {
+                unset($this->cart[$productId]);
+                continue;
+            }
+
+            $this->cart[$productId]['product_id']   = $product->id;
+            $this->cart[$productId]['product_name'] = $product->name;
+            $this->cart[$productId]['unit_price']   = (float) $product->sell_price;
+            $this->cart[$productId]['quantity']     = max(0.01, (float) ($item['quantity'] ?? 1));
+            $this->cart[$productId]['discount_type'] = in_array($item['discount_type'] ?? 'percent', ['percent', 'fixed'], true)
+                ? $item['discount_type'] ?? 'percent'
+                : 'percent';
+
+            $this->recalculateItemDiscount((int) $productId);
+        }
+    }
+
     private function recalculateItemDiscount(int $productId): void
     {
         if (!isset($this->cart[$productId])) return;
         $item  = $this->cart[$productId];
         $base  = (float) $item['unit_price'] * (float) $item['quantity'];
         $type  = $item['discount_type'] ?? 'percent';
-        $value = (float) ($item['discount_value'] ?? 0);
+        $value = max(0, (float) ($item['discount_value'] ?? 0));
+
+        // Une remise en % ne peut dépasser 100 % (sinon total négatif)
+        if ($type === 'percent') {
+            $value = min(100, $value);
+        }
+        $this->cart[$productId]['discount_value'] = $value;
 
         $discAmount = $value > 0
             ? ($type === 'percent'
@@ -296,6 +337,9 @@ class Caisse extends Page
                 ->send();
             return;
         }
+
+        // Prix/remises recalculés côté serveur (le panier vient du navigateur)
+        $this->rebuildCartFromDatabase();
 
         $total  = $this->getTotal();
         $change = $this->getChange();
@@ -441,6 +485,9 @@ class Caisse extends Page
         if (empty($this->cart)) {
             return;
         }
+
+        // Prix/remises recalculés côté serveur (le panier vient du navigateur)
+        $this->rebuildCartFromDatabase();
 
         $shop = Filament::getTenant();
 

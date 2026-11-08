@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CreditResource extends Resource
 {
+    use \App\Traits\ShieldOnlyResource;
+
     protected static ?string $model = Credit::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';

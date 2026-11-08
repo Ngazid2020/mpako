@@ -85,7 +85,7 @@ class StockReport extends Page implements HasTable
             ->filters([
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('Catégorie')
-                    ->relationship('category', 'name')
+                    ->relationship('category', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()?->getKey()))
                     ->native(false),
 
                 Tables\Filters\Filter::make('low_stock')

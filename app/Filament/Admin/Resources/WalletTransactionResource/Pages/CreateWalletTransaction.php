@@ -7,37 +7,40 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class CreateWalletTransaction extends CreateRecord
 {
     protected static string $resource = WalletTransactionResource::class;
 
+    protected function afterFill(): void
+    {
+        // Pré-sélection depuis le bouton « Recharger » de ShopResource (?wallet_id=)
+        if ($walletId = request()->integer('wallet_id')) {
+            $this->form->fill(['wallet_id' => $walletId] + $this->form->getRawState());
+        }
+    }
+
+    /**
+     * Recharge = Wallet::credit() : verrou, solde relu en base, journal + solde atomiques.
+     */
     protected function handleRecordCreation(array $data): WalletTransaction
     {
         $wallet = Wallet::find($data['wallet_id']);
-        if (!$wallet) {
-            throw new \Exception('Portefeuille introuvable');
+
+        if (! $wallet) {
+            throw ValidationException::withMessages(['data.wallet_id' => 'Portefeuille introuvable.']);
         }
 
-        $oldBalance = $wallet->balance;
-        $newBalance = $oldBalance + $data['amount'];
-        $reference = WalletTransaction::generateReference($wallet->shop_id);
+        if ((float) $data['amount'] <= 0) {
+            throw ValidationException::withMessages(['data.amount' => 'Le montant doit être positif.']);
+        }
 
-        $transaction = WalletTransaction::create([
-            'wallet_id' => $wallet->id,
-            'shop_id' => $wallet->shop_id,
-            'user_id' => Auth::id(),
-            'reference' => $reference,
-            'type' => 'recharge',
-            'payment_method' => $data['payment_method'],
-            'amount' => $data['amount'],
-            'balance_before' => $oldBalance,
-            'balance_after' => $newBalance,
-            'notes' => $data['notes'] ?? '',
-            'is_confirmed' => true,
-        ]);
-
-        $wallet->update(['balance' => $newBalance]);
-        return $transaction;
+        return $wallet->credit(
+            (float) $data['amount'],
+            $data['payment_method'],
+            $data['notes'] ?? '',
+            Auth::id(),
+        );
     }
 }
