@@ -20,6 +20,11 @@ class DatabaseSeeder extends Seeder
             'phone'    => '+2699000000',
             'email'    => 'admin@beez.km',
             'is_admin' => true,
+            'password' => bcrypt('password'),
+        ]);
+
+        $this->call([
+            SubscriptionSeeder::class,
         ]);
 
         // $this->call([

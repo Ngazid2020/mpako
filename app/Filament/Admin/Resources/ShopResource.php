@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\ShopResource\Pages;
+use App\Filament\Admin\Resources\WalletResource;
+use App\Filament\Admin\Resources\WalletTransactionResource;
 use App\Models\Shop;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -93,6 +95,21 @@ class ShopResource extends Resource
                             ->helperText('Désactiver un commerce bloque l\'accès de ses membres')
                             ->default(true),
                     ]),
+
+                // Section : Portefeuille & Abonnement
+                Forms\Components\Section::make('Portefeuille & Abonnement')
+                    ->icon('heroicon-o-wallet')
+                    ->schema([
+                        Forms\Components\Placeholder::make('wallet_balance')
+                            ->label('Solde actuel')
+                            ->content(fn($record) => $record ? $record->wallet_balance_formatted : '—'),
+                        Forms\Components\Placeholder::make('subscription_expires_at')
+                            ->label('Abonnement expire')
+                            ->content(fn($record) => $record && $record->subscription_expires_at ? $record->subscription_expires_at->format('d/m/Y') : 'Non défini'),
+                        Forms\Components\Placeholder::make('subscription_status')
+                            ->label('Statut abonnement')
+                            ->content(fn($record) => $record ? ($record->isSubscriptionActive() ? '✅ Actif' : ($record->isInGracePeriod() ? '⚠️ Période de grâce' : '❌ Inactif')) : '—'),
+                    ]),
             ]);
     }
 
@@ -131,6 +148,18 @@ class ShopResource extends Resource
                     ->label('Actif')
                     ->boolean(),
 
+                Tables\Columns\TextColumn::make('wallet_balance')
+                    ->label('Portefeuille')
+                    ->money('KMF')
+                    ->sortable()
+                    ->color(fn($state) => $state >= 1000 ? 'success' : ($state > 0 ? 'warning' : 'danger')),
+
+                Tables\Columns\TextColumn::make('subscription_expires_at')
+                    ->label('Abonnement expire')
+                    ->dateTime('d/m/Y')
+                    ->sortable()
+                    ->color(fn($state) => $state && now() < $state ? 'success' : 'danger'),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Créé le')
                     ->dateTime('d/m/Y')
@@ -154,6 +183,12 @@ class ShopResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('recharge')
+                    ->label('Recharger')
+                    ->icon('heroicon-o-wallet')
+                    ->color('success')
+                    ->url(fn($record) => WalletTransactionResource::getUrl('create') . '?wallet_id=' . ($record->wallet?->id ?? ''))
+                    ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
