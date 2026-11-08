@@ -68,9 +68,36 @@ class Caisse extends Page
     // INITIALISATION
     // ─────────────────────────────────────────────
 
+    /** Nombre maximum de produits affichés dans la liste */
+    private const PRODUCT_LIST_LIMIT = 60;
+
     public function mount(): void
     {
-        $this->searchResults = collect();
+        // La liste des produits est visible dès l'ouverture de la caisse
+        $this->loadProducts();
+    }
+
+    /**
+     * Charge les produits actifs du commerce, filtrés par $search s'il est renseigné.
+     */
+    private function loadProducts(): void
+    {
+        $term = trim($this->search);
+
+        $this->searchResults = Filament::getTenant()->products()
+            ->where('is_active', true)
+            ->when($term !== '', function ($query) use ($term) {
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                        ->orWhere('barcode', $term);
+                });
+            })
+            ->with(['category', 'unit'])
+            // Produits en stock d'abord, puis ordre alphabétique
+            ->orderByRaw('CASE WHEN stock_qty > 0 THEN 0 ELSE 1 END')
+            ->orderBy('name')
+            ->limit(self::PRODUCT_LIST_LIMIT)
+            ->get();
     }
 
     // ─────────────────────────────────────────────
@@ -110,22 +137,12 @@ class Caisse extends Page
      */
     public function updatedSearch(): void
     {
-        if (strlen($this->search) < 1) {
-            $this->searchResults = collect();
+        // Recherche vide → liste complète ; sinon → filtre
+        $this->loadProducts();
+
+        if (trim($this->search) === '') {
             return;
         }
-
-        $shop = Filament::getTenant();
-
-        $this->searchResults = $shop->products()
-            ->where('is_active', true)
-            ->where(function ($query) {
-                $query->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('barcode', $this->search);
-            })
-            ->with(['category', 'unit'])
-            ->limit(8)
-            ->get();
 
         // Auto-add si correspondance exacte de code-barres (scan caméra)
         $first = $this->searchResults->first();
@@ -194,9 +211,9 @@ class Caisse extends Page
             ];
         }
 
-        // Vider la recherche après ajout
-        $this->search        = '';
-        $this->searchResults = collect();
+        // Vider la recherche après ajout → on réaffiche la liste complète
+        $this->search = '';
+        $this->loadProducts();
     }
 
     /**

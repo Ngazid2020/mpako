@@ -18,22 +18,40 @@
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
-                    placeholder="Nom du produit..."
+                    placeholder="Filtrer par nom ou code-barres..."
                     class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-lg px-4 py-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     autofocus
                 />
                 {{-- Scanner code-barres désactivé temporairement --}}
             </div>
 
-            {{-- Résultats de recherche --}}
-            @if($searchResults->isNotEmpty())
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
-                    <div class="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">
-                            {{ $searchResults->count() }} résultat(s)
-                        </span>
-                    </div>
-                    <div class="divide-y dark:divide-gray-700">
+            {{-- Liste des produits (complète par défaut, filtrée par la recherche) --}}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+                <div class="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                        @if(trim($search) === '')
+                            📦 Produits ({{ $searchResults->count() }})
+                        @else
+                            {{ $searchResults->count() }} résultat(s) pour « {{ $search }} »
+                        @endif
+                    </span>
+                    @if(trim($search) !== '')
+                        <button wire:click="$set('search', '')" class="text-xs text-primary-600 hover:underline">
+                            Afficher tout
+                        </button>
+                    @endif
+                </div>
+
+                @if($searchResults->isEmpty())
+                    <p class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        @if(trim($search) === '')
+                            Aucun produit actif dans ce commerce.
+                        @else
+                            Aucun produit ne correspond à « {{ $search }} ».
+                        @endif
+                    </p>
+                @else
+                    <div class="divide-y dark:divide-gray-700 max-h-96 overflow-y-auto">
                         @foreach($searchResults as $product)
                             <button
                                 wire:click="addToCart({{ $product->id }})"
@@ -74,8 +92,8 @@
                             </button>
                         @endforeach
                     </div>
-                </div>
-            @endif
+                @endif
+            </div>
 
             {{-- Panier --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
