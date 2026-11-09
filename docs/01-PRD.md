@@ -213,12 +213,13 @@ Principes directeurs :
 
 | ID | Exigence | Priorité | Statut |
 |---|---|---|---|
-| FR-MUL-01 | Inscription utilisateur (téléphone), validation par l'équipe BeeZ (`is_approved`) avant accès | Must | Livré |
+| FR-MUL-01 | **Inscription en libre-service** depuis le bouton « Commencer » : compte (nom, téléphone, mot de passe) **et** boutique (nom, île, ville) en un seul formulaire, compte actif immédiatement, connexion automatique vers le tableau de bord. Le super-admin peut désactiver un compte (`is_approved = false`) | Must | Livré |
 | FR-MUL-02 | Création d'un commerce (nom, île, ville…) et profil du commerce modifiable | Must | Livré |
 | FR-MUL-03 | Un utilisateur peut appartenir à plusieurs commerces et basculer de l'un à l'autre | Must | Livré |
 | FR-MUL-04 | Isolation stricte des données par commerce (formulaires, filtres, API, rapports, PDF) | Must | Livré |
 | FR-MUL-05 | Authentification à deux facteurs (2FA TOTP) | Should | Livré |
-| FR-MUL-06 | Attribution automatique du rôle `owner` au créateur d'un commerce | Must | À venir (dépend de FR-EMP-03) |
+| FR-MUL-06 | Attribution automatique du rôle `owner` au créateur d'un commerce | Must | Partiel : attribué si l'utilisateur n'a encore aucun rôle (rôles globaux) ; complet avec FR-EMP-03 |
+| FR-MUL-07 | **Essai gratuit d'un mois** à la création de la boutique (forfait « Essai gratuit », 0 KMF), **une seule fois par utilisateur** ; bandeau des jours restants dans le panel | Must | Livré |
 
 ### 6.9 Employés et rôles (EMP)
 
@@ -287,7 +288,7 @@ Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travaill
 | FR-ABO-04 | Journal des transactions non modifiable et non supprimable (corrections par transaction inverse) | Must | Livré |
 | FR-ABO-05 | Workflow du portefeuille : brouillon → soumis → validé / rejeté ; validation réservée au super-admin | Should | Partiel (pas de re-soumission après rejet) |
 | FR-ABO-06 | Le commerçant consulte son portefeuille et ses transactions en lecture seule | Must | Livré |
-| FR-ABO-07 | Création automatique du portefeuille à la création d'un commerce | Must | À venir |
+| FR-ABO-07 | Création automatique du portefeuille à la création d'un commerce | Must | Livré |
 | FR-ABO-08 | Souscription / renouvellement d'abonnement débitant le portefeuille et mettant à jour `subscription_expires_at` | Must | À venir |
 | FR-ABO-09 | Restriction d'accès (lecture seule ou blocage) après expiration + période de grâce | Must | À venir |
 | FR-ABO-10 | Limites par forfait (nombre de produits, d'utilisateurs) | Should | À venir |
@@ -321,9 +322,9 @@ Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travaill
 
 ### 8.1 Première utilisation (propriétaire)
 
-1. Mariama s'inscrit avec son numéro de téléphone.
-2. Elle voit la page « compte en attente » jusqu'à validation par l'équipe BeeZ.
-3. Après validation, elle crée son commerce (nom, île, ville).
+1. Sur la page d'accueil, Mariama clique sur **« Commencer »**.
+2. Dans un seul formulaire, elle saisit son nom, son téléphone et son mot de passe, puis le nom, l'île et la ville de sa boutique.
+3. Elle est connectée directement sur le tableau de bord de sa boutique. Un bandeau indique « Essai gratuit : encore 30 jours ». Son portefeuille est créé, et elle a le rôle propriétaire.
 4. Elle crée ses catégories et produits (prix de vente, stock initial).
 5. Elle encaisse sa première vente depuis la caisse.
 
@@ -440,7 +441,7 @@ Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travaill
 |---|---|---|
 | **R0 — Socle** | Caisse, stock, achats, crédits, dépenses, rapports, PWA, API & sync offline | Livré |
 | **R1 — Stabilisation** (Sprint 1) | Correction de l'audit : isolation multi-tenant, permissions API, idempotence sync, cohérence des soldes, sécurisation caisse, module wallet sans crash, 28 tests automatisés | Livré (9/11/2026) |
-| **R1.1 — Mode hors ligne web** (Sprint 2) | Application hors ligne de la plateforme (caisse, produits, stock, clients et crédits, achats, fournisseurs, dépenses), synchronisation automatique, références entre éléments créés hors ligne ; liste des produits dès l'ouverture de la caisse | Livré (9/11/2026) |
+| **R1.1 — Mode hors ligne web** (Sprint 2) | Application hors ligne de la plateforme (caisse, produits, stock, clients et crédits, achats, fournisseurs, dépenses), synchronisation automatique, références entre éléments créés hors ligne ; liste des produits dès l'ouverture de la caisse ; **inscription en libre-service avec essai gratuit d'un mois** | Livré (9/11/2026) |
 | **R2 — Sécurité des rôles** | Rôles par commerce, rôle `owner` à la création, gestion des employés dans le panel commerce | À venir |
 | **R3 — Monétisation** | Portefeuille automatique, abonnement débité, expiration et période de grâce, limites par forfait | À venir |
 | **R4 — Fiabilité financière** | Coût historique par ligne de vente, résultat net sur marge, annulation de vente, désactivation produit | À venir |

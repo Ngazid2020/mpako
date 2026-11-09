@@ -510,7 +510,7 @@ Générées par `Model::generateReference($shopId)` — ne jamais les construire
 
 ## 11. Module Portefeuille / Abonnements (en cours)
 
-État au Sprint 1 :
+État au Sprint 2 :
 
 | Élément | État |
 |---|---|
@@ -521,9 +521,25 @@ Générées par `Model::generateReference($shopId)` — ne jamais les construire
 | `Wallet::credit()` / `debit()` atomiques, refus solde négatif | ✅ |
 | Recharge admin via `Wallet::credit()` (pré-sélection `?wallet_id=`) | ✅ |
 | Portefeuille commerçant en lecture seule | ✅ |
-| Création automatique du portefeuille à la création du shop | ❌ backlog |
+| Création automatique du portefeuille à la création du shop | ✅ (`ShopOnboarding`) |
+| Essai gratuit d'un mois à la création (forfait `is_trial`, une fois par utilisateur) | ✅ |
 | Débit de l'abonnement / renouvellement / expiration (job) | ❌ backlog |
-| Blocage d'accès si abonnement expiré (`Shop::canUseSystem()`) | ❌ backlog |
+| Blocage d'accès si abonnement expiré (`Shop::canUseSystem()`) | ❌ backlog (US-503) : à la fin de l'essai, rien n'est encore bloqué |
+
+### Inscription en libre-service et essai gratuit
+
+Le bouton « Commencer » mène à `/commerce/register` (`App\Filament\Commerce\Pages\Auth\Register`). Ce formulaire unique crée le compte et la boutique, puis s'appuie sur le flux natif de Filament : limitation des tentatives, transaction, connexion, régénération de session et redirection vers le tableau de bord.
+
+`App\Services\ShopOnboarding::createShop()` est utilisé aussi par `RegisterShop` (« créer un autre commerce »). Il fait, dans une seule transaction :
+1. la création du commerce, avec un slug unique (suffixe `-2`, `-3`… si besoin) ;
+2. le rattachement du créateur (`shop_user`) ;
+3. l'attribution du rôle `owner`, **seulement si l'utilisateur n'a aucun rôle**. Les rôles sont globaux : un employé existant ne doit pas devenir propriétaire partout (US-101) ;
+4. la création du portefeuille (solde 0, brouillon) ;
+5. l'essai gratuit : un `Subscription` sur le forfait « Essai gratuit » (`subscription_plans.is_trial = true`, 0 KMF, créé à la demande), de maintenant à **+1 mois**, et le report de la date de fin dans `shops.subscription_expires_at`. Il n'est accordé **qu'une fois par utilisateur** : une deuxième boutique n'a pas d'essai.
+
+Les comptes inscrits sont **approuvés d'office** (`is_approved = true`). Le super-admin peut toujours les désactiver. L'ancienne page « compte en attente » (`register.pending`) n'est plus utilisée par l'inscription.
+
+Le bandeau « Essai gratuit : encore N jours » est affiché par le render hook `CONTENT_START` du panel Commerce (`filament/components/trial-banner.blade.php`).
 
 ---
 
@@ -550,6 +566,7 @@ En production : cron `* * * * * php artisan schedule:run` et un worker `php arti
 | `tests/Feature/Api/SyncPushTest` | Idempotence, cross-tenant, permissions, achat poussé validé |
 | `tests/Feature/FilamentSmokeTest` | Chargement des pages admin et commerce clés |
 | `tests/Feature/OfflineModeTest` | Page hors ligne (accès), token par poste, `pull?light=1`, création hors ligne de produits, clients et fournisseurs, références `*_local_id` dans un même lot et d'un lot à l'autre, `update_product` sans effet sur le stock |
+| `tests/Feature/ShopSignupTrialTest` | « Commencer » → compte + boutique + rôle + portefeuille + essai d'un mois, connexion automatique ; essai unique par utilisateur ; slug unique ; pas d'élévation de rôle d'un employé |
 | `tests/Feature/CaisseProductListTest` | Liste des produits affichée dès l'ouverture de la caisse, filtrage par la recherche |
 | `tests/Feature/Concerns/BuildsShopFixtures` | Fabrique de données de test |
 

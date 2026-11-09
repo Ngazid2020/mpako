@@ -12,10 +12,10 @@
 | EPIC-2 Intégrité des données | Aucun historique perdu ; aucune référence en doublon | 24 | Must |
 | EPIC-3 Rapports fiables | Bénéfice et marges exacts (coût historique) | 13 | Must |
 | EPIC-4 Sync & API mobile | Sync robuste sur réseau instable ; app mobile alignée | 23 | Must/Should |
-| EPIC-5 Abonnements & portefeuille | Monétisation : abonnement payé par portefeuille, accès conditionné | 39 | Must |
+| EPIC-5 Abonnements & portefeuille | Monétisation : abonnement payé par portefeuille, accès conditionné | 36 restants (8 livrés) | Must |
 | EPIC-6 Qualité & DevOps | Livraisons sûres et reproductibles | 19 | Must/Should |
 | EPIC-7 Mode hors ligne web | Travailler sur la plateforme sans connexion, synchronisation automatique | 23 restants (29 livrés) | Must/Could |
-| **Total restant** | | **171** | |
+| **Total restant** | | **168** | |
 
 Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 sprints**, soit environ 3 à 4 mois (voir le [TDR](../02-TDR.md)).
 
@@ -26,7 +26,7 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 | ID | User story | Pts | Prio | Dépend. | Audit |
 |---|---|---|---|---|---|
 | US-101 | En tant que **propriétaire de plusieurs commerces**, je veux que les rôles soient attribués *par commerce* afin qu'un caissier du commerce B n'hérite pas de mes droits de propriétaire du commerce A. | 13 | Must | — | C03 |
-| US-102 | En tant que **nouveau commerçant**, je veux recevoir automatiquement le rôle propriétaire de mon commerce à sa création, afin d'utiliser l'application sans intervention de l'admin. Seuls les propriétaires peuvent créer un commerce, dans la limite fixée par l'abonnement. | 5 | Must | US-101 | C15 |
+| US-102 | En tant que **nouveau commerçant**, je veux recevoir automatiquement le rôle propriétaire de mon commerce à sa création, afin d'utiliser l'application sans intervention de l'admin. Seuls les propriétaires peuvent créer un commerce, dans la limite fixée par l'abonnement. *Partiel au Sprint 2 : `owner` est attribué aux nouveaux inscrits sans rôle (US-508) ; il reste le rôle par commerce et la limite de création.* | 5 | Must | US-101 | C15 |
 | US-103 | En tant que **super-admin**, je veux que la gestion des employés en Admin filtre par commerce, rattache l'employé à un commerce et interdise d'attribuer `super_admin`. | 5 | Should | US-101 | W09 |
 | US-104 | En tant que **développeur**, je veux un scope tenant global (middleware Filament) afin que tout nouveau `Select` ou filtre soit isolé par défaut. | 5 | Should | — | C04 |
 | US-105 | En tant que **super-admin**, je veux que le panel Admin ne découvre plus les pages et widgets du panel Commerce. | 2 | Could | — | W19 |
@@ -68,7 +68,8 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 
 | ID | User story | Pts | Prio | Dépend. | Audit |
 |---|---|---|---|---|---|
-| US-501 | En tant que **super-admin**, je veux qu'un portefeuille soit créé automatiquement à la création de chaque commerce. | 3 | Must | — | W17 |
+| ~~US-501~~ ✅ | ~~En tant que **super-admin**, je veux qu'un portefeuille soit créé automatiquement à la création de chaque commerce.~~ **Livré au Sprint 2** (`ShopOnboarding`). | 3 | — | — | W17 |
+| US-508 ✅ | En tant que **visiteur**, je veux, en cliquant sur « Commencer », créer mon compte et ma boutique en une fois et profiter d'**un mois d'essai gratuit**, sans attendre de validation. **Livré au Sprint 2.** | 5 | Must | — | — |
 | US-502 | En tant que **commerçant**, je veux souscrire un forfait payé par mon portefeuille. Concrètement : `Wallet::debit()`, création de l'abonnement et mise à jour de `shops.subscription_expires_at` dans une seule transaction. | 8 | Must | US-501 | W12 |
 | US-503 | En tant que **BeeZ**, je veux que l'accès au panel et à l'API soit conditionné à un abonnement actif, avec une période de grâce et un message clair. | 5 | Must | US-502 | A14, W17 |
 | US-504 | En tant que **commerçant**, je veux être averti avant l'expiration et que le renouvellement automatique débite mon portefeuille (tâche planifiée). | 5 | Should | US-502 | — |
@@ -109,9 +110,9 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 | Sprint | Objectif (Sprint Goal) | Stories | Points |
 |---|---|---|---|
 | **S1** ✅ | Stabiliser : sécurité multi-tenant, cohérence comptable, tests | Voir [SPRINT-01.md](SPRINT-01.md) | — |
-| **S2** ✅ | « Le propriétaire travaille sur la plateforme même hors ligne » (priorité PO) | US-701 à US-704, US-402 + liste produits caisse — voir [SPRINT-02.md](SPRINT-02.md) | 34 |
+| **S2** ✅ | « Le propriétaire travaille sur la plateforme même hors ligne » (priorité PO), plus l'inscription en libre-service avec essai | US-701 à US-704, US-402, US-501, US-508 + liste produits caisse — voir [SPRINT-02.md](SPRINT-02.md) | 42 |
 | **S3** | « Chaque utilisateur n'a que les droits de son rôle **dans** ce commerce, et le mobile est aligné » | US-101, US-102, US-406, US-601 | 26 |
-| **S4** | « Un commerçant peut payer son abonnement avec son portefeuille » | US-501, US-502, US-503, US-507, US-104 | 23 |
+| **S4** | « Un commerçant peut payer son abonnement avec son portefeuille » (l'essai gratuit ne bloque encore rien à son terme : US-503 est prioritaire) | US-502, US-503, US-507, US-104 | 20 |
 | **S5** | « Les chiffres de bénéfice sont justes et l'historique est préservé » | US-301, US-302, US-201 | 21 |
 | **S6** | « La sync tient sur un réseau 3G instable » | US-401, US-708, US-403, US-404, US-603 | 19 |
 | **S7** | Consolidation | US-202, US-203, US-204, US-705 | 21 |

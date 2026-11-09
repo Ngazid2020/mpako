@@ -5,7 +5,7 @@
 | **Période** | 9 novembre 2026 |
 | **Branche** | `modulepro` |
 | **Sprint Goal** | *Le propriétaire peut travailler sur la plateforme sans connexion (ventes, produits, stock, clients, achats, fournisseurs, dépenses) ; tout se synchronise automatiquement au retour du réseau.* |
-| **Résultat** | ✅ Objectif atteint : 34 points livrés, 34 tests automatisés au vert |
+| **Résultat** | ✅ Objectif atteint : 42 points livrés (avec l'ajout PO « inscription + essai »), 38 tests automatisés au vert |
 
 ---
 
@@ -25,6 +25,8 @@
 | US-703 | Synchronisation automatique (retour réseau, toutes les 30 s), nouvelles opérations `create_product`, `update_product`, `create_customer`, `create_supplier`, références `*_local_id` | 5 | ✅ Done |
 | US-402 | Références locales résolues d'un lot de sync à l'autre (couvert par US-703) | 5 | ✅ Done |
 | US-704 | Service worker (`beez-v2`) : cache de l'application et de ses assets, repli automatique hors ligne ; menu « Mode hors ligne » ; bannière « Connexion perdue » ; préchargement | 3 | ✅ Done |
+| US-508 | *Ajout du PO en cours de sprint.* « Commencer » : compte et boutique créés en un seul formulaire, compte actif, connexion automatique, rôle `owner` (si aucun rôle), **essai gratuit d'un mois** (une fois par utilisateur), bandeau des jours restants | 5 | ✅ Done |
+| US-501 | Portefeuille créé automatiquement à chaque nouvelle boutique (`ShopOnboarding`, aussi pour « créer un autre commerce ») | 3 | ✅ Done |
 
 ### Critères d'acceptation vérifiés
 
@@ -37,6 +39,7 @@
 | La modification d'une fiche produit ne change jamais le stock et exige `update_product` | `test_update_product_never_changes_stock_and_requires_permission` |
 | Les effets locaux (stock, remises, crédits, paiements plafonnés, FIFO) correspondent aux règles serveur, et une opération refusée n'est pas rejouée | Script Node de contrôle de `operations.js` (exécuté pendant le sprint) |
 | La caisse en ligne affiche les produits sans saisie | `CaisseProductListTest` |
+| « Commencer » crée le compte, la boutique, le rôle, le portefeuille et un essai d'un mois (fin au même quantième du mois suivant), puis connecte l'utilisateur ; l'essai n'est accordé qu'une fois ; un employé existant n'est pas promu `owner` | `ShopSignupTrialTest` |
 
 ## 3. Sprint Review
 
@@ -52,6 +55,8 @@
 - Données locales non chiffrées : US-707.
 - Chaque synchronisation recharge le snapshot complet : US-708.
 - Pré-requis d'exploitation : HTTPS en production, et une première ouverture en ligne par appareil.
+- **Fin de l'essai gratuit** : rien n'est encore bloqué à l'expiration. Le contrôle d'accès (US-503) devient prioritaire au Sprint 4.
+- **Inscription sans validation admin** : n'importe qui peut créer une boutique. Il faut surveiller les inscriptions abusives (le super-admin peut désactiver un compte).
 
 ## 4. Sprint Retrospective
 
@@ -64,6 +69,6 @@
 
 | Mesure | Valeur |
 |---|---|
-| Points livrés | 34 |
-| Tests automatisés | 28 → 34 (139 assertions) |
+| Points livrés | 42 |
+| Tests automatisés | 28 → 38 (168 assertions) |
 | Nouvelles opérations de sync | 4 (+ références locales génériques) |

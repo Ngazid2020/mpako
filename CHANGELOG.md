@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 ## [Non publié] — Sprint 2 « Mode hors ligne web » (2026-11-09)
 
 ### ⚠️ À faire au déploiement
+- `php artisan migrate` : ajoute `subscription_plans.is_trial`.
 - `npm run build`, car de nouveaux assets sont ajoutés (`resources/css/offline.css`, `resources/js/offline/app.js`).
 - HTTPS obligatoire en production pour le service worker.
 - Le service worker passe en `beez-v2` : l'ancien cache est purgé automatiquement.
@@ -23,9 +24,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - Sync push : opérations `create_product`, `update_product`, `create_customer`, `create_supplier`.
 - Sync push : références `*_local_id` (client, fournisseur, produit, achat, crédit, vente) résolues via `sync_operations`, dans un même lot ou d'un lot à l'autre (US-402).
 - Sync pull : `categories`, `units`, et paramètre `light=1`.
-- Tests : `OfflineModeTest`, `CaisseProductListTest` (34 tests au total).
+- Tests : `OfflineModeTest`, `CaisseProductListTest`.
+
+- **Inscription en libre-service avec essai gratuit d'un mois** : le bouton « Commencer » mène à un formulaire unique, compte + boutique. Le compte est actif immédiatement et l'utilisateur connecté sur sa boutique. À la création, il reçoit :
+  - le rôle `owner` (s'il n'a aucun rôle) ;
+  - un portefeuille ;
+  - un abonnement « Essai gratuit » (0 KMF, 1 mois, une seule fois par utilisateur).
+
+  Un bandeau « Essai gratuit : encore N jours » s'affiche dans le panel. La logique est centralisée dans `App\Services\ShopOnboarding`, aussi utilisée pour « Créer un autre commerce ».
+- Migration `subscription_plans.is_trial`. Le forfait d'essai est créé automatiquement.
+- Tests : `ShopSignupTrialTest`, soit 38 tests au total.
 
 ### Modifié
+- Les nouveaux inscrits ne passent plus par la validation admin (`is_approved = true` d'office). La page « compte en attente » n'est plus utilisée à l'inscription.
+- Thème Filament Commerce : les vues `resources/views/filament/components/**` sont incluses dans la compilation Tailwind.
 - Caisse (« Boutique ») : la liste des produits actifs est affichée dès l'ouverture (en stock d'abord, 60 au maximum) ; la recherche ne fait que filtrer.
 - Service worker : assets `/build/assets/*` en cache-first ; sans réseau, une page du commerce affiche l'application hors ligne au lieu de la page générique `/offline`.
 

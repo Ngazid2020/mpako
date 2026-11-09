@@ -108,6 +108,13 @@ class CommercePanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn(): string => Auth::check() ? Blade::render('@include("filament.components.mobile-bottom-nav")') : ''
             )
+            // Essai gratuit : jours restants
+            ->renderHook(
+                PanelsRenderHook::CONTENT_START,
+                fn(): string => Filament::getTenant()
+                    ? Blade::render('@include("filament.components.trial-banner", ["shop" => $shop])', ['shop' => Filament::getTenant()])
+                    : ''
+            )
             // Mode hors ligne : préchargement + bannière de bascule quand la connexion tombe
             ->renderHook(
                 PanelsRenderHook::BODY_END,

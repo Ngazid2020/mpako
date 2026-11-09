@@ -183,6 +183,7 @@ Compte admin par défaut : `admin@beez.km` / `password`
     4. ajouter un test dans `OfflineModeTest`.
   - Un élément créé hors ligne se référence par `<x>_local_id`.
   - Si `public/serviceworker.js` change, incrémenter `CACHE_NAME`.
+- **Création de boutique** : toujours passer par `App\Services\ShopOnboarding::createShop()`. Il gère le rattachement, le rôle `owner` (seulement sans rôle existant), le portefeuille et l'essai gratuit d'un mois (une fois par utilisateur). Il est utilisé par l'inscription « Commencer » (`Pages/Auth/Register`) et par `RegisterShop`.
 - **Méthodologie** : Agile/Scrum. Backlog dans `docs/scrum/PRODUCT-BACKLOG.md`, Definition of Done dans `docs/scrum/SCRUM-GUIDE.md`. Toute nouvelle page Filament s'ajoute à `tests/Feature/FilamentSmokeTest.php`.
 
 ---

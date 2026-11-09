@@ -7,6 +7,7 @@ BeeZ (nom de code du dépôt : **mpako**) est un ERP de gestion commerciale mult
   - `/commerce/{slug}` : commerçants, multi-tenant par commerce ;
   - `/admin` : super-admin BeeZ.
 - **API mobile** : `/api`, avec authentification par token Sanctum (30 jours) et synchronisation offline `pull`/`push`.
+- **Inscription en libre-service** : le bouton « Commencer » ouvre `/commerce/register`. Le compte et la boutique sont créés en une seule fois, avec **1 mois d'essai gratuit**.
 - **Mode hors ligne web** : `/commerce/{slug}/hors-ligne`. Caisse, produits, stock, clients, achats, fournisseurs et dépenses restent utilisables sans connexion, puis se synchronisent automatiquement au retour du réseau. Il faut HTTPS en production, et l'avoir ouvert une fois en ligne sur l'appareil.
 
 ## Démarrage rapide

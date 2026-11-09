@@ -159,4 +159,22 @@ class Shop extends Model
     {
         return $this->is_active && ($this->isSubscriptionActive() || $this->isInGracePeriod());
     }
+
+    /** Abonnement en cours (actif et non expiré), le plus récent */
+    public function currentSubscription(): ?Subscription
+    {
+        return $this->subscriptions()
+            ->with('plan')
+            ->where('is_active', true)
+            ->where('starts_at', '<=', now())
+            ->where('ends_at', '>=', now())
+            ->latest('ends_at')
+            ->first();
+    }
+
+    /** Le commerce est-il dans sa période d'essai gratuit ? */
+    public function isOnTrial(): bool
+    {
+        return (bool) $this->currentSubscription()?->plan?->is_trial;
+    }
 }
