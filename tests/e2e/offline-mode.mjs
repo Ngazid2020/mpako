@@ -42,6 +42,22 @@ const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message));
 const bodyText = () => page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
 
+/**
+ * Coupe / rétablit le réseau de la page ET du service worker.
+ * `page.setOfflineMode()` seul ne touche pas le service worker, qui atteindrait encore
+ * le serveur : ce ne serait pas une vraie coupure.
+ */
+async function setOffline(offline) {
+    await page.setOfflineMode(offline);
+    for (const target of browser.targets().filter((t) => t.type() === 'service_worker')) {
+        const session = await target.createCDPSession();
+        await session.send('Network.enable');
+        await session.send('Network.emulateNetworkConditions', {
+            offline, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
+        });
+    }
+}
+
 try {
     // 1. Connexion
     await page.goto(`${BASE}/commerce/login`, { waitUntil: 'networkidle0' });
@@ -61,8 +77,8 @@ try {
     const cached = await page.evaluate(async (slug) => !!(await caches.match(`/commerce/${slug}/hors-ligne`)), SLUG);
     check('Mode hors ligne préparé automatiquement', prepared && cached, `données=${prepared} page en cache=${cached}`);
 
-    // 3. Coupure réseau → bascule automatique
-    await page.setOfflineMode(true);
+    // 3. Coupure réseau (page + service worker) → bascule automatique
+    await setOffline(true);
     await page.waitForFunction(() => location.pathname.endsWith('/hors-ligne'), { timeout: 20000 }).catch(() => {});
     await sleep(2000);
     check('Bascule automatique vers le mode hors ligne', page.url().endsWith('/hors-ligne'), page.url());
@@ -76,8 +92,22 @@ try {
     await sleep(1000);
     check('Vente enregistrée hors ligne', /Sync \(1\)/.test(await bodyText()));
 
+    // 4 bis. Page générique « Pas de connexion » (accueil) → lien vers le mode hors ligne
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForSelector(`#offline-shop-links a[href="/commerce/${SLUG}/hors-ligne"]`, { timeout: 5000 }).catch(() => {});
+    const offlineLink = await page.$(`#offline-shop-links a[href="/commerce/${SLUG}/hors-ligne"]`);
+    check('Lien vers le mode hors ligne depuis « Pas de connexion »', !!offlineLink);
+    if (offlineLink) {
+        await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }).catch(() => {}), offlineLink.click()]);
+        await sleep(2000);
+    } else {
+        await page.goto(`${BASE}/commerce/${SLUG}/hors-ligne`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+        await sleep(2000);
+    }
+    check('Retour au mode hors ligne, vente toujours en attente', /Sync \(1\)/.test(await bodyText()));
+
     // 5. Retour du réseau → synchronisation automatique
-    await page.setOfflineMode(false);
+    await setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     let synced = false;
     for (let i = 0; i < 20 && !synced; i++) {
