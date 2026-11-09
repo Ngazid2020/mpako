@@ -19,7 +19,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
   - fournisseurs : création, paiement ;
   - dépenses.
 - Synchronisation automatique au retour du réseau (et toutes les 30 s), file d'opérations avec effets visibles immédiatement, onglet « Sync » (opérations refusées avec motif, Réessayer / Abandonner, effacement des données du poste).
-- Entrée de menu « Mode hors ligne » et bannière « Connexion perdue » dans le panel Commerce, avec préchargement automatique du cache.
+- Entrée de menu « Mode hors ligne » et **bascule automatique** du panel vers le mode hors ligne quand la connexion tombe : compte à rebours de 5 s, annulable. La coupure est détectée par l'événement navigateur et par une sonde `/up` (Wi-Fi sans Internet). Le cache est préchargé automatiquement. Au retour du réseau, un bandeau « tout est synchronisé » propose de revenir à la plateforme.
 - Token API par poste : `POST /commerce/{slug}/hors-ligne/token`.
 - Sync push : opérations `create_product`, `update_product`, `create_customer`, `create_supplier`.
 - Sync push : références `*_local_id` (client, fournisseur, produit, achat, crédit, vente) résolues via `sync_operations`, dans un même lot ou d'un lot à l'autre (US-402).

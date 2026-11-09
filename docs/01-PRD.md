@@ -253,7 +253,7 @@ Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travaill
 
 | ID | Exigence | Priorité | Statut |
 |---|---|---|---|
-| FR-OFF-01 | Le propriétaire (et tout membre autorisé) peut ouvrir le mode hors ligne depuis le menu « Mode hors ligne » ; quand la connexion tombe sur une page du panel, une bannière propose d'y basculer | Must | Livré |
+| FR-OFF-01 | **Bascule automatique** : quand la connexion tombe sur une page du panel, y compris en Wi-Fi sans Internet (sonde toutes les 20 s), un compte à rebours de 5 s affiche « Passage en mode hors ligne », que l'on peut annuler avec « Rester ici ». Le mode hors ligne s'ouvre aussi depuis le menu. Au retour du réseau, un bandeau confirme la synchronisation et propose de revenir à la plateforme | Must | Livré |
 | FR-OFF-02 | Sans réseau, toute navigation vers une page du commerce affiche l'application hors ligne mise en cache (préchargée automatiquement depuis le panel) | Must | Livré |
 | FR-OFF-03 | Hors ligne : **caisse** (comptant et crédit, remises), **produits** (création, modification, entrée/sortie/inventaire de stock), **clients** (création, remboursement de crédit), **achats** (création, validation, paiement), **fournisseurs** (création, paiement), **dépenses** | Must | Livré |
 | FR-OFF-04 | Chaque opération est enregistrée localement et son effet est visible immédiatement (stock, dettes) | Must | Livré |
@@ -351,10 +351,10 @@ Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travaill
 
 ### 8.4 bis Journée hors ligne sur la plateforme web (propriétaire)
 
-1. Mariama travaille sur la plateforme depuis le navigateur de son téléphone. Le réseau tombe : une bannière « Connexion perdue — Continuer en mode hors ligne » apparaît.
-2. Elle passe en mode hors ligne. Elle crée un nouveau produit, encaisse des ventes, fait crédit à un nouveau client, enregistre une livraison fournisseur et une dépense. Le stock et les dettes se mettent à jour à l'écran ; un compteur indique les opérations en attente.
+1. Mariama travaille sur la plateforme depuis le navigateur de son téléphone. Le réseau tombe : une bannière « Connexion perdue — passage en mode hors ligne dans 5 s » apparaît.
+2. La plateforme bascule automatiquement en mode hors ligne. Elle crée un nouveau produit, encaisse des ventes, fait crédit à un nouveau client, enregistre une livraison fournisseur et une dépense. Le stock et les dettes se mettent à jour à l'écran ; un compteur indique les opérations en attente.
 3. Le réseau revient : la file est envoyée automatiquement, puis les données sont rechargées depuis le serveur. Une opération refusée (droits insuffisants, par exemple) reste visible dans l'onglet « Sync » avec son motif.
-4. Elle revient à la plateforme habituelle : tout y figure.
+4. Un bandeau vert indique « Connexion rétablie, tout est synchronisé ✔ ». Elle revient à la plateforme habituelle, où tout figure.
 
 ### 8.5 Recharge et abonnement (super-admin)
 

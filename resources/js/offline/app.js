@@ -38,6 +38,7 @@ window.offlineApp = (config) => ({
 
     // État
     online: navigator.onLine,
+    wasOffline: !navigator.onLine,
     syncing: false,
     ready: false,
     snapshot: null,
@@ -78,7 +79,7 @@ window.offlineApp = (config) => ({
         this.ready = true;
 
         window.addEventListener('online', () => { this.online = true; this.sync(); });
-        window.addEventListener('offline', () => { this.online = false; });
+        window.addEventListener('offline', () => { this.online = false; this.wasOffline = true; });
         setInterval(() => {
             if (this.online && (this.queue.some((o) => o.status !== 'error') || this.isStale())) this.sync();
         }, AUTO_SYNC_MS);

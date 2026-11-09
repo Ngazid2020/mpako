@@ -55,6 +55,14 @@
     <div x-show="!online" class="bg-amber-100 px-4 py-2 text-sm text-amber-900">
         Vous travaillez hors ligne. Vos opérations sont enregistrées sur cet appareil et seront envoyées automatiquement au retour de la connexion.
     </div>
+    <div x-show="online && wasOffline && !authError" class="flex flex-wrap items-center justify-between gap-2 bg-green-100 px-4 py-2 text-sm text-green-900">
+        <span x-show="syncing || pendingCount > 0">Connexion rétablie, synchronisation en cours…</span>
+        <span x-show="!syncing && pendingCount === 0">Connexion rétablie, tout est synchronisé ✔</span>
+        <span class="flex gap-2">
+            <a :href="config.panelUrl" x-show="!syncing && pendingCount === 0" class="font-semibold underline">Retour à la plateforme</a>
+            <button type="button" @click="wasOffline = false" class="text-green-700">Masquer</button>
+        </span>
+    </div>
     <div x-show="authError" class="bg-red-100 px-4 py-2 text-sm text-red-800">
         <span x-text="authError"></span>
         <a :href="config.panelUrl" class="font-semibold underline">Se reconnecter</a>
