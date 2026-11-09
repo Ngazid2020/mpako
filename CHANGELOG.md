@@ -41,6 +41,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - Caisse (« Boutique ») : la liste des produits actifs est affichée dès l'ouverture (en stock d'abord, 60 au maximum) ; la recherche ne fait que filtrer.
 - Service worker : assets `/build/assets/*` en cache-first ; sans réseau, une page du commerce affiche l'application hors ligne au lieu de la page générique `/offline`.
 
+### CI/CD
+- **Intégration continue** `.github/workflows/ci.yml`, à chaque push et pull request :
+  - tests PHP, après build des assets ;
+  - test navigateur du mode hors ligne (`E2EOfflineSeeder` + Chrome) ;
+  - style Pint, en informatif.
+- **Déploiement continu** `.github/workflows/deploy.yml`, après une CI verte sur `master` (ou manuellement) :
+  - checkout du commit testé sur le serveur ;
+  - assets construits en CI puis envoyés par `rsync` ;
+  - `scripts/deploy.sh` (maintenance, composer, migrations, caches, workers) ;
+  - vérification `/up`.
+
+  Il est inactif tant que les secrets de l'environnement `production` ne sont pas configurés. Voir [docs/06-CICD.md](docs/06-CICD.md).
+
 ### Corrigé
 - **Mode hors ligne inaccessible ou vide** (constaté en test réel) :
   - le service worker copiait la réponse **après** l'avoir rendue au navigateur, donc la page `/hors-ligne` n'était jamais mise en cache ;

@@ -613,6 +613,7 @@ npm run dev
 
 - `APP_DEBUG=false`, MySQL, `php artisan migrate --force`, `php artisan optimize`, `npm run build`.
 - **HTTPS obligatoire** : sans HTTPS, ni le service worker ni le mode hors ligne ne fonctionnent.
+- **Déploiement automatisé** : GitHub Actions, puis SSH et `scripts/deploy.sh`. Voir [06-CICD.md](06-CICD.md).
 - Après chaque déploiement qui modifie `public/serviceworker.js`, incrémenter `CACHE_NAME` (`beez-vN`) pour forcer le renouvellement du cache.
 - Cron du scheduler + worker de queue.
 - Clés VAPID (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`) pour les notifications push.
@@ -630,6 +631,6 @@ Voir le [Product Backlog](scrum/PRODUCT-BACKLOG.md) pour le détail et la priori
 4. Suppression d'un produit en cascade sur `sale_items` / `purchase_items` / `stock_movements` (historique perdu) → désactivation / soft delete.
 5. `credits.sale_id` en `cascadeOnDelete` : la suppression d'une vente efface le crédit sans passer par l'observer.
 6. Pull de sync : snapshot initial sans pagination (historique complet des ventes). Le mode web utilise `light=1`, mais recharge le snapshot complet après chaque synchronisation.
-9. Mode hors ligne web : le test navigateur (`npm run test:e2e`) n'est pas encore en CI (il demande Chrome et un serveur démarré). Les données locales ne sont pas chiffrées.
+9. Mode hors ligne web : les données locales ne sont pas chiffrées (le test navigateur tourne en CI).
 7. Module abonnements incomplet (débit, expiration, blocage).
 8. Stock plancher à 0 masquant les survente (décision métier à confirmer).

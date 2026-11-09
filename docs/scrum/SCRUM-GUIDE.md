@@ -85,7 +85,7 @@ Un élément est « Done » quand :
 - [ ] Les tests automatisés couvrent les règles métier ajoutées ou modifiées.
 - [ ] `php artisan test` est entièrement au vert (SQLite `:memory:`).
 - [ ] Le smoke test Filament (`FilamentSmokeTest`) passe pour toute page ajoutée.
-- [ ] `vendor/bin/pint --test` ne signale rien (lorsque la CI sera en place : US-601).
+- [ ] La CI GitHub Actions est verte : `Tests PHP` et `E2E mode hors ligne` (voir [06-CICD.md](../06-CICD.md)). Le style Pint reste informatif tant que le code existant n'est pas reformaté.
 
 **Données & déploiement**
 - [ ] Les migrations sont réversibles (`down()`) et testées via `migrate:fresh` sur une base jetable.

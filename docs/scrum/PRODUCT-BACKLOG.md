@@ -13,9 +13,9 @@
 | EPIC-3 Rapports fiables | Bénéfice et marges exacts (coût historique) | 13 | Must |
 | EPIC-4 Sync & API mobile | Sync robuste sur réseau instable ; app mobile alignée | 23 | Must/Should |
 | EPIC-5 Abonnements & portefeuille | Monétisation : abonnement payé par portefeuille, accès conditionné | 36 restants (8 livrés) | Must |
-| EPIC-6 Qualité & DevOps | Livraisons sûres et reproductibles | 19 | Must/Should |
-| EPIC-7 Mode hors ligne web | Travailler sur la plateforme sans connexion, synchronisation automatique | 23 restants (29 livrés) | Must/Could |
-| **Total restant** | | **168** | |
+| EPIC-6 Qualité & DevOps | Livraisons sûres et reproductibles | 16 restants (CI/CD livrée) | Must/Should |
+| EPIC-7 Mode hors ligne web | Travailler sur la plateforme sans connexion, synchronisation automatique | 18 restants (34 livrés) | Must/Could |
+| **Total restant** | | **160** | |
 
 Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 sprints**, soit environ 3 à 4 mois (voir le [TDR](../02-TDR.md)).
 
@@ -81,10 +81,10 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 
 | ID | User story | Pts | Prio | Dépend. | Audit |
 |---|---|---|---|---|---|
-| US-601 | En tant qu'**équipe**, je veux une CI (GitHub Actions : `composer install`, `php artisan test`, `pint --test`) sur chaque pull request. | 3 | Must | — | — |
+| ~~US-601~~ ✅ | ~~En tant qu'**équipe**, je veux une CI sur chaque pull request.~~ **Livré** : `ci.yml` (tests PHP, E2E, Pint informatif) + déploiement continu `deploy.yml`. Voir [06-CICD.md](../06-CICD.md). | 3 | — | — | — |
 | US-602 | En tant qu'**équipe**, je veux des tests sur la caisse (Livewire), les rapports, les policies et les PDF. | 8 | Should | US-601 | — |
 | US-603 | En tant que **caissier**, je veux que les notifications (stock faible, alertes quotidiennes) partent en file d'attente afin de ne jamais ralentir l'encaissement. Nécessite un worker supervisé. | 3 | Should | — | D12 |
-| US-604 | En tant qu'**équipe**, je veux que les assets compilés (`public/build`) ne soient plus versionnés mais construits au déploiement. | 2 | Could | US-601 | — |
+| US-604 | En tant qu'**équipe**, je veux que les assets compilés (`public/build`) ne soient plus versionnés mais construits au déploiement. *Le déploiement les construit déjà ; il reste à les retirer du dépôt.* | 2 | Could | ✅ US-601 | — |
 | US-605 | En tant qu'**équipe**, je veux un suivi des erreurs en production (Sentry ou équivalent) et des sauvegardes de base automatisées. | 3 | Could | — | — |
 
 ---
@@ -97,7 +97,7 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 | US-702 | En tant que **propriétaire**, je veux gérer hors ligne mes clients et leurs remboursements, mes achats (création, validation, paiement), mes fournisseurs et mes dépenses. | 8 | Must | ✅ Sprint 2 |
 | US-703 | En tant que **propriétaire**, je veux que mes opérations hors ligne se synchronisent automatiquement au retour du réseau, sans doublon, y compris celles qui utilisent un client ou un produit créé hors ligne. | 5 | Must | ✅ Sprint 2 |
 | US-704 | En tant qu'**utilisateur du panel**, je veux être basculé vers le mode hors ligne quand la connexion tombe, sans rien avoir préparé (préchargement automatique). | 3 | Must | ✅ Sprint 2 |
-| US-705 | En tant qu'**équipe**, je veux des tests navigateur de bout en bout : couper le réseau, vendre, rétablir, vérifier la base. | 5 | Should | Partiel : scénario `npm run test:e2e` livré, reste l'intégration en CI |
+| US-705 | En tant qu'**équipe**, je veux des tests navigateur de bout en bout : couper le réseau, vendre, rétablir, vérifier la base. | 5 | Should | ✅ Livré : `npm run test:e2e`, exécuté en CI (job « E2E mode hors ligne ») |
 | US-706 | En tant que **propriétaire**, je veux consulter hors ligne l'historique récent des ventes et un résumé du jour. | 5 | Could | À faire |
 | US-707 | En tant que **propriétaire sur un poste partagé**, je veux protéger les données locales par un code PIN (chiffrement). | 5 | Could | À faire |
 | US-708 | En tant qu'**utilisateur web**, je veux une resynchronisation incrémentale (`since`) plutôt qu'un snapshot complet à chaque cycle. | 3 | Should | À faire (après US-401) |
@@ -111,11 +111,11 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 |---|---|---|---|
 | **S1** ✅ | Stabiliser : sécurité multi-tenant, cohérence comptable, tests | Voir [SPRINT-01.md](SPRINT-01.md) | — |
 | **S2** ✅ | « Le propriétaire travaille sur la plateforme même hors ligne » (priorité PO), plus l'inscription en libre-service avec essai | US-701 à US-704, US-402, US-501, US-508 + liste produits caisse — voir [SPRINT-02.md](SPRINT-02.md) | 42 |
-| **S3** | « Chaque utilisateur n'a que les droits de son rôle **dans** ce commerce, et le mobile est aligné » | US-101, US-102, US-406, US-601 | 26 |
+| **S3** | « Chaque utilisateur n'a que les droits de son rôle **dans** ce commerce, et le mobile est aligné » | US-101, US-102, US-406 | 23 |
 | **S4** | « Un commerçant peut payer son abonnement avec son portefeuille » (l'essai gratuit ne bloque encore rien à son terme : US-503 est prioritaire) | US-502, US-503, US-507, US-104 | 20 |
 | **S5** | « Les chiffres de bénéfice sont justes et l'historique est préservé » | US-301, US-302, US-201 | 21 |
 | **S6** | « La sync tient sur un réseau 3G instable » | US-401, US-708, US-403, US-404, US-603 | 19 |
-| **S7** | Consolidation | US-202, US-203, US-204, US-705 | 21 |
+| **S7** | Consolidation | US-202, US-203, US-204 | 16 |
 | **S8+** | Évolutions | US-504, US-602, US-103, US-105, US-405, US-505, US-506, US-604, US-605, US-706, US-707, US-709 | 61 |
 
 ## Questions ouvertes pour le PO
