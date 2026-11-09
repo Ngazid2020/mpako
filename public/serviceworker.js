@@ -1,4 +1,4 @@
-var CACHE_NAME = 'beez-v3';
+var CACHE_NAME = 'beez-v4';
 
 var STATIC_ASSETS = [
     '/offline',

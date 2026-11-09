@@ -254,7 +254,7 @@ Le panel web (Filament/Livewire) a besoin du réseau. Pour continuer à travaill
 | ID | Exigence | Priorité | Statut |
 |---|---|---|---|
 | FR-OFF-01 | **Bascule automatique** : quand la connexion tombe sur une page du panel, y compris en Wi-Fi sans Internet (sonde toutes les 20 s), un compte à rebours de 5 s affiche « Passage en mode hors ligne », que l'on peut annuler avec « Rester ici ». Le mode hors ligne s'ouvre aussi depuis le menu. Au retour du réseau, un bandeau confirme la synchronisation et propose de revenir à la plateforme | Must | Livré |
-| FR-OFF-02 | Sans réseau, toute navigation vers une page du commerce affiche l'application hors ligne mise en cache (préchargée automatiquement depuis le panel) | Must | Livré |
+| FR-OFF-02 | Sans réseau, toute navigation vers une page du commerce affiche l'application hors ligne mise en cache (préchargée automatiquement depuis le panel). Sur les autres pages (accueil, connexion…), la page « Pas de connexion » propose un bouton **« Ouvrir le mode hors ligne »** pour chaque boutique préparée sur l'appareil | Must | Livré |
 | FR-OFF-03 | Hors ligne : **caisse** (comptant et crédit, remises), **produits** (création, modification, entrée/sortie/inventaire de stock), **clients** (création, remboursement de crédit), **achats** (création, validation, paiement), **fournisseurs** (création, paiement), **dépenses** | Must | Livré |
 | FR-OFF-04 | Chaque opération est enregistrée localement et son effet est visible immédiatement (stock, dettes) | Must | Livré |
 | FR-OFF-05 | **Synchronisation automatique** au retour de la connexion (et toutes les 30 s en ligne), sans doublon (idempotence par `local_id`), suivie d'un rechargement des données serveur | Must | Livré |

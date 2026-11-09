@@ -417,7 +417,7 @@ Le panel Filament repose sur Livewire : chaque interaction est un aller-retour s
 | Effets locaux | `resources/js/offline/operations.js` | État affiché = **snapshot serveur + rejeu de la file** d'opérations en attente |
 | Synchronisation | `resources/js/offline/sync.js` | Push de la file, puis `pull?light=1` qui devient le nouveau snapshot |
 | Stockage | `resources/js/offline/db.js` | IndexedDB `beez-offline`, clés préfixées `{slug}:{userId}` |
-| Cache | `public/serviceworker.js` (`beez-v2`) | Page et assets `/build/assets/*` en cache ; sans réseau, toute page `/commerce/{slug}/…` affiche l'application hors ligne |
+| Cache | `public/serviceworker.js` (`beez-v4`) | Page et assets `/build/assets/*` en cache ; sans réseau, toute page `/commerce/{slug}/…` affiche l'application hors ligne. Les autres pages affichent `/offline` (`resources/views/vendor/laravelpwa/offline.blade.php`), qui lit le cache et propose un lien vers le mode hors ligne de chaque boutique préparée |
 | Pont avec le panel | `filament/components/offline-bridge.blade.php` + entrée de menu « Mode hors ligne » | **Préparation en arrière-plan** : l'application hors ligne est chargée dans une iframe invisible (toutes les 15 min). Elle met en cache la page et les assets, obtient le token et télécharge les données, puis prévient le panel (`postMessage` `beez-offline-ready`). « Prêt » signifie : page en cache **et** données synchronisées. Détection de coupure : événement `offline` + sonde `HEAD /up` toutes les 20 s, 2 échecs = hors ligne. **Bascule automatique** après 5 s, annulable (« Rester ici »), seulement si l'application est en cache ; sinon un message invite à se reconnecter une fois |
 
 ```mermaid

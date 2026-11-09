@@ -74,6 +74,27 @@
 
         .btn:active { background: #1d4ed8; }
 
+        a.btn { text-decoration: none; margin-bottom: 10px; }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #1e3a5f;
+        }
+
+        .btn-secondary:active { background: #cbd5e1; }
+
+        .offline-shops { margin-bottom: 20px; }
+
+        .offline-shops h2 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .offline-shops p { margin-bottom: 14px; }
+
+        [hidden] { display: none !important; }
+
         .hint {
             margin-top: 16px;
             font-size: 12px;
@@ -92,11 +113,70 @@
         <h1>Pas de connexion</h1>
         <p>Vérifie ta connexion internet et réessaie.<br>Tes données restent sauvegardées sur le serveur.</p>
 
-        <button class="btn" onclick="window.location.reload()">
+        {{-- Liens vers le mode hors ligne des boutiques déjà préparées sur cet appareil --}}
+        <div id="offline-shops" class="offline-shops" hidden>
+            <h2>Continuer sans connexion</h2>
+            <p>Vendez et gérez votre boutique hors ligne : tout sera synchronisé au retour du réseau.</p>
+            <div id="offline-shop-links"></div>
+        </div>
+
+        <button id="retry" class="btn" onclick="window.location.reload()">
             Réessayer
         </button>
 
-        <p class="hint">BeeZ nécessite une connexion pour synchroniser les ventes.</p>
+        <p id="hint" class="hint">BeeZ nécessite une connexion pour synchroniser les ventes.</p>
     </div>
+
+    <script>
+        // Cherche dans le cache du service worker les applications hors ligne déjà préparées
+        // (/commerce/{slug}/hors-ligne) et propose un lien vers chacune.
+        (async function () {
+            if (!('caches' in window)) return;
+
+            var shops = [];
+            try {
+                var names = await caches.keys();
+                for (var i = 0; i < names.length; i++) {
+                    var cache = await caches.open(names[i]);
+                    var requests = await cache.keys();
+                    for (var j = 0; j < requests.length; j++) {
+                        var path = new URL(requests[j].url).pathname;
+                        var match = path.match(/^\/commerce\/([^/]+)\/hors-ligne\/?$/);
+                        if (!match || shops.some(function (s) { return s.path === path; })) continue;
+
+                        // Nom de la boutique lu dans le <title> de la page en cache
+                        var name = match[1];
+                        try {
+                            var response = await cache.match(requests[j]);
+                            var title = (await response.text()).match(/<title>\s*([^<]*?)\s+—\s+Mode hors ligne/i);
+                            if (title) name = title[1];
+                        } catch (e) {}
+
+                        shops.push({ path: path, name: name });
+                    }
+                }
+            } catch (e) {
+                return;
+            }
+
+            if (shops.length === 0) {
+                document.getElementById('hint').textContent =
+                    "Le mode hors ligne n'est pas encore préparé sur cet appareil : ouvre ta boutique une fois avec une connexion pour l'activer.";
+                return;
+            }
+
+            var container = document.getElementById('offline-shop-links');
+            shops.forEach(function (shop) {
+                var link = document.createElement('a');
+                link.className = 'btn';
+                link.href = shop.path;
+                link.textContent = (shops.length > 1 ? shop.name + ' — ' : '') + 'Ouvrir le mode hors ligne';
+                container.appendChild(link);
+            });
+
+            document.getElementById('offline-shops').hidden = false;
+            document.getElementById('retry').classList.add('btn-secondary');
+        })();
+    </script>
 </body>
 </html>

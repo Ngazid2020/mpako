@@ -55,6 +55,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
   Il est inactif tant que les secrets de l'environnement `production` ne sont pas configurés. Voir [docs/06-CICD.md](docs/06-CICD.md).
 
 ### Corrigé
+- Page « Pas de connexion » (accueil, connexion… sans réseau) : bouton **« Ouvrir le mode hors ligne »** pour chaque boutique déjà préparée sur l'appareil, avec le nom de la boutique s'il y en a plusieurs. Cache du service worker en `beez-v4`.
+- Test E2E : la coupure réseau s'applique aussi au service worker (sinon il atteignait encore le serveur et masquait les défauts).
 - **Mode hors ligne inaccessible ou vide** (constaté en test réel) :
   - le service worker copiait la réponse **après** l'avoir rendue au navigateur, donc la page `/hors-ligne` n'était jamais mise en cache ;
   - les données (token, produits, clients…) n'étaient téléchargées qu'à l'ouverture manuelle du mode hors ligne.
