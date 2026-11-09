@@ -57,6 +57,12 @@ class SaleResource extends Resource
                             ->money('KMF')
                             ->weight('bold'),
 
+                        Infolists\Components\TextEntry::make('discount_amount')
+                            ->label('Remise appliquée')
+                            ->money('KMF')
+                            ->color('success')
+                            ->visible(fn ($state) => (float) $state > 0),
+
                         Infolists\Components\TextEntry::make('paid_amount')
                             ->label('Payé')
                             ->money('KMF'),
@@ -95,12 +101,18 @@ class SaleResource extends Resource
                                     ->label('Prix unit.')
                                     ->money('KMF'),
 
+                                Infolists\Components\TextEntry::make('discount_amount')
+                                    ->label('Remise')
+                                    ->money('KMF')
+                                    ->color('success')
+                                    ->visible(fn ($state) => (float) $state > 0),
+
                                 Infolists\Components\TextEntry::make('subtotal')
                                     ->label('Sous-total')
                                     ->money('KMF')
                                     ->weight('bold'),
                             ])
-                            ->columns(4),
+                            ->columns(5),
                     ]),
             ]);
     }
@@ -131,8 +143,9 @@ class SaleResource extends Resource
                     ->money('KMF')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\BadgeColumn::make('status')
+                Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
+                    ->badge()
                     ->formatStateUsing(fn ($state) => match($state) {
                         'completed' => '✅ Complétée',
                         'cancelled' => '❌ Annulée',

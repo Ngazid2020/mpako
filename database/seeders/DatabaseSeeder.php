@@ -15,14 +15,24 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        User::factory()->create([
+            'name'     => 'Admin User',
+            'phone'    => '+2699000000',
+            'email'    => 'admin@beez.km',
+            'is_admin' => true,
+            'password' => bcrypt('password'),
+        ]);
 
         $this->call([
-            KomorShopSeeder::class,
-            StockSeeder::class,
+            SubscriptionSeeder::class,
         ]);
+
+        // $this->call([
+        //     BeeZSeeder::class,
+        //     StockSeeder::class,
+        //     PurchaseSeeder::class,
+        //     CreditSeeder::class,
+        //     ExpenseSeeder::class,
+        // ]);
     }
 }

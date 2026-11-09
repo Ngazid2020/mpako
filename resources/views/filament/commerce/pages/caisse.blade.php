@@ -1,13 +1,16 @@
 <x-filament-panels::page>
 
+    {{-- ══════════════════════════════════════════════════════ --}}
+    {{-- GRILLE PRINCIPALE                                      --}}
+    {{-- ══════════════════════════════════════════════════════ --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {{-- ════════════════════════════════════════ --}}
-        {{-- COLONNE GAUCHE : Recherche + Résultats  --}}
-        {{-- ════════════════════════════════════════ --}}
+        {{-- ───────────────────────────────────────────────── --}}
+        {{-- COLONNE GAUCHE : Recherche + Résultats + Panier   --}}
+        {{-- ───────────────────────────────────────────────── --}}
         <div class="lg:col-span-2 space-y-4">
 
-            {{-- Champ de recherche --}}
+            {{-- Recherche --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     🔍 Rechercher un produit
@@ -15,179 +18,229 @@
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
-                    placeholder="Nom du produit ou code-barres..."
-                    class="w-full rounded-lg border-gray-300 dark:border-gray-600
-                           dark:bg-gray-700 dark:text-white text-lg px-4 py-3
-                           focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    autofocus />
+                    placeholder="Filtrer par nom ou code-barres..."
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-lg px-4 py-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    autofocus
+                />
+                {{-- Scanner code-barres désactivé temporairement --}}
             </div>
 
-            {{-- Résultats de la recherche --}}
-            @if($searchResults->isNotEmpty())
+            {{-- Liste des produits (complète par défaut, filtrée par la recherche) --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
-                <div class="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                <div class="p-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
                     <span class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ $searchResults->count() }} résultat(s)
+                        @if(trim($search) === '')
+                            📦 Produits ({{ $searchResults->count() }})
+                        @else
+                            {{ $searchResults->count() }} résultat(s) pour « {{ $search }} »
+                        @endif
                     </span>
+                    @if(trim($search) !== '')
+                        <button wire:click="$set('search', '')" class="text-xs text-primary-600 hover:underline">
+                            Afficher tout
+                        </button>
+                    @endif
                 </div>
-                <div class="divide-y dark:divide-gray-700">
-                    @foreach($searchResults as $product)
-                    <button
-                        wire:click="addToCart({{ $product->id }})"
-                        class="w-full flex items-center justify-between p-4
-                                       hover:bg-primary-50 dark:hover:bg-primary-900/20
-                                       transition-colors text-left group">
-                        <div class="flex-1">
-                            <p class="font-semibold text-gray-900 dark:text-white
-                                              group-hover:text-primary-600">
-                                {{ $product->name }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                {{ $product->category?->name }}
-                                @if($product->unit)
-                                · {{ $product->unit->abbreviation }}
-                                @endif
-                            </p>
-                        </div>
 
-                        <div class="text-center mx-4">
-                            <span @class([ 'text-xs px-2 py-1 rounded-full font-medium' , 'bg-green-100 text-green-700'=> $product->stock_qty > $product->stock_alert,
-                                'bg-orange-100 text-orange-700' => $product->stock_qty > 0 && $product->stock_qty <= $product->stock_alert,
-                                    'bg-red-100 text-red-700' => $product->stock_qty <= 0,
-                                        ])>
+                @if($searchResults->isEmpty())
+                    <p class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        @if(trim($search) === '')
+                            Aucun produit actif dans ce commerce.
+                        @else
+                            Aucun produit ne correspond à « {{ $search }} ».
+                        @endif
+                    </p>
+                @else
+                    <div class="divide-y dark:divide-gray-700 max-h-96 overflow-y-auto">
+                        @foreach($searchResults as $product)
+                            <button
+                                wire:click="addToCart({{ $product->id }})"
+                                class="w-full flex items-center justify-between p-4 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors text-left group"
+                            >
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600">
+                                        {{ $product->name }}
+                                    </p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        {{ $product->category?->name }}
+                                        @if($product->unit)
+                                            · {{ $product->unit->abbreviation }}
+                                        @endif
+                                    </p>
+                                </div>
+
+                                <div class="text-center mx-4">
+                                    @php
+                                        $stockClass = 'bg-green-100 text-green-700';
+                                        if ($product->stock_qty <= 0) {
+                                            $stockClass = 'bg-red-100 text-red-700';
+                                        } elseif ($product->stock_qty <= $product->stock_alert) {
+                                            $stockClass = 'bg-orange-100 text-orange-700';
+                                        }
+                                    @endphp
+                                    <span class="text-xs px-2 py-1 rounded-full font-medium {{ $stockClass }}">
                                         Stock: {{ $product->stock_qty }}
-                            </span>
-                        </div>
+                                    </span>
+                                </div>
 
-                        <div class="text-right">
-                            <p class="font-bold text-primary-600 dark:text-primary-400 text-lg">
-                                {{ number_format($product->sell_price, 0, ',', ' ') }}
-                                <span class="text-xs">KMF</span>
-                            </p>
-                        </div>
-                    </button>
-                    @endforeach
-                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-primary-600 dark:text-primary-400 text-lg">
+                                        {{ number_format($product->sell_price, 0, ',', ' ') }}
+                                        <span class="text-xs">KMF</span>
+                                    </p>
+                                </div>
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
             </div>
-            @endif
 
             {{-- Panier --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
 
-                <div class="flex items-center justify-between p-4 border-b dark:border-gray-700
-                            bg-gray-50 dark:bg-gray-700">
+                <div class="flex items-center justify-between p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
                     <h2 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         🛒 Panier
                         @if($this->getCartCount() > 0)
-                        <span class="bg-primary-500 text-white text-xs rounded-full
-                                         px-2 py-0.5">
-                            {{ $this->getCartCount() }}
-                        </span>
+                            <span class="bg-primary-500 text-white text-xs rounded-full px-2 py-0.5">
+                                {{ $this->getCartCount() }}
+                            </span>
                         @endif
                     </h2>
 
                     @if(!empty($cart))
-                    <button
-                        wire:click="clearCart"
-                        wire:confirm="Vider le panier ?"
-                        class="text-sm text-red-500 hover:text-red-700 transition-colors">
-                        Vider
-                    </button>
+                        <button
+                            wire:click="clearCart"
+                            wire:confirm="Vider le panier ?"
+                            class="text-sm text-red-500 hover:text-red-700 transition-colors"
+                        >
+                            Vider
+                        </button>
                     @endif
                 </div>
 
                 @if(empty($cart))
-                <div class="p-12 text-center text-gray-400 dark:text-gray-500">
-                    <x-heroicon-o-shopping-cart class="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p>Le panier est vide</p>
-                    <p class="text-sm mt-1">Recherchez un produit ci-dessus</p>
-                </div>
+                    <div class="p-12 text-center text-gray-400 dark:text-gray-500">
+                        <x-heroicon-o-shopping-cart class="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p>Le panier est vide</p>
+                        <p class="text-sm mt-1">Recherchez un produit ci-dessus</p>
+                    </div>
                 @else
-                <div class="divide-y dark:divide-gray-700">
-                    @foreach($cart as $productId => $item)
-                    <div class="flex items-center gap-4 p-4">
+                    <div class="divide-y dark:divide-gray-700">
+                        @foreach($cart as $productId => $item)
+                            <div class="p-4">
+                                {{-- Ligne principale --}}
+                                <div class="flex items-center gap-4">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-medium text-gray-900 dark:text-white truncate">
+                                            {{ $item['product_name'] }}
+                                        </p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                                            {{ number_format($item['unit_price'], 0, ',', ' ') }} KMF / {{ $item['unit'] }}
+                                        </p>
+                                    </div>
 
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium text-gray-900 dark:text-white truncate">
-                                {{ $item['product_name'] }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                {{ number_format($item['unit_price'], 0, ',', ' ') }} KMF
-                                / {{ $item['unit'] }}
-                            </p>
-                        </div>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] - 1 }})"
+                                            class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 flex items-center justify-center text-gray-700 dark:text-gray-300 transition-colors font-bold"
+                                        >−</button>
 
-                        <div class="flex items-center gap-2">
-                            <button
-                                wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] - 1 }})"
-                                class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700
-                                               hover:bg-red-100 dark:hover:bg-red-900/30
-                                               flex items-center justify-center
-                                               text-gray-700 dark:text-gray-300
-                                               transition-colors font-bold">
-                                −
-                            </button>
+                                        <input
+                                            type="number"
+                                            value="{{ $item['quantity'] }}"
+                                            wire:change="updateQuantity({{ $productId }}, $event.target.value)"
+                                            class="w-16 text-center rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-semibold"
+                                            min="0"
+                                            max="{{ $item['stock_max'] }}"
+                                            step="1"
+                                            inputmode="numeric"
+                                            x-on:focus="$el.select()"
+                                        />
 
-                            <input
-                                type="number"
-                                value="{{ $item['quantity'] }}"
-                                wire:change="updateQuantity({{ $productId }}, $event.target.value)"
-                                class="w-16 text-center rounded-lg border-gray-300
-                                               dark:border-gray-600 dark:bg-gray-700
-                                               dark:text-white font-semibold"
-                                min="0"
-                                max="{{ $item['stock_max'] }}"
-                                step="1" />
+                                        <button
+                                            wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] + 1 }})"
+                                            class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900/30 flex items-center justify-center text-gray-700 dark:text-gray-300 transition-colors font-bold"
+                                        >+</button>
+                                    </div>
 
-                            <button
-                                wire:click="updateQuantity({{ $productId }}, {{ $item['quantity'] + 1 }})"
-                                class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700
-                                               hover:bg-green-100 dark:hover:bg-green-900/30
-                                               flex items-center justify-center
-                                               text-gray-700 dark:text-gray-300
-                                               transition-colors font-bold">
-                                +
-                            </button>
-                        </div>
+                                    <div class="text-right w-28">
+                                        <p class="font-bold text-gray-900 dark:text-white">
+                                            {{ number_format($item['subtotal'], 0, ',', ' ') }}
+                                            <span class="text-xs text-gray-500">KMF</span>
+                                        </p>
+                                        @if(($item['discount_amount'] ?? 0) > 0)
+                                            <p class="text-xs text-green-600 dark:text-green-400">
+                                                −{{ number_format($item['discount_amount'], 0, ',', ' ') }} KMF
+                                            </p>
+                                        @endif
+                                    </div>
 
-                        <div class="text-right w-28">
-                            <p class="font-bold text-gray-900 dark:text-white">
-                                {{ number_format($item['subtotal'], 0, ',', ' ') }}
-                                <span class="text-xs text-gray-500">KMF</span>
-                            </p>
-                        </div>
+                                    <button
+                                        wire:click="removeFromCart({{ $productId }})"
+                                        class="text-red-400 hover:text-red-600 transition-colors"
+                                    >
+                                        <x-heroicon-o-x-mark class="w-5 h-5" />
+                                    </button>
+                                </div>
 
-                        <button
-                            wire:click="removeFromCart({{ $productId }})"
-                            class="text-red-400 hover:text-red-600 transition-colors">
-                            <x-heroicon-o-x-mark class="w-5 h-5" />
-                        </button>
-
+                                {{-- Ligne remise --}}
+                                <div class="flex items-center gap-2 mt-2 ml-1">
+                                    <span class="text-xs text-gray-400 shrink-0">Remise :</span>
+                                    <select
+                                        wire:model.live="cart.{{ $productId }}.discount_type"
+                                        class="text-xs rounded-md border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1 pl-2 pr-6 text-gray-600"
+                                    >
+                                        <option value="percent">%</option>
+                                        <option value="fixed">KMF</option>
+                                    </select>
+                                    <input
+                                        type="number"
+                                        wire:model.live.debounce.500ms="cart.{{ $productId }}.discount_value"
+                                        class="w-20 text-xs rounded-md border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1 text-center"
+                                        min="0"
+                                        placeholder="0"
+                                        step="any"
+                                        inputmode="decimal"
+                                        x-on:focus="$el.select()"
+                                    />
+                                    @if(($item['discount_amount'] ?? 0) > 0)
+                                        <span class="text-xs font-semibold text-green-600 dark:text-green-400">
+                                            économie : {{ number_format($item['discount_amount'], 0, ',', ' ') }} KMF
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                    @endforeach
-                </div>
 
-                <div class="p-4 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600">
-                    <div class="flex justify-between items-center">
-                        <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                            Total
-                        </span>
-                        <span class="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                            {{ number_format($this->getTotal(), 0, ',', ' ') }} KMF
-                        </span>
+                    @php $totalDiscount = collect($cart)->sum('discount_amount'); @endphp
+                    <div class="p-4 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 space-y-1">
+                        @if($totalDiscount > 0)
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-500 dark:text-gray-400">Remise totale</span>
+                                <span class="font-semibold text-green-600 dark:text-green-400">
+                                    −{{ number_format($totalDiscount, 0, ',', ' ') }} KMF
+                                </span>
+                            </div>
+                        @endif
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">Total</span>
+                            <span class="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                                {{ number_format($this->getTotal(), 0, ',', ' ') }} KMF
+                            </span>
+                        </div>
                     </div>
-                </div>
                 @endif
             </div>
         </div>
 
-        {{-- ═══════════════════════════════════ --}}
-        {{-- COLONNE DROITE : Encaissement      --}}
-        {{-- ═══════════════════════════════════ --}}
+        {{-- ───────────────────────────────────────── --}}
+        {{-- COLONNE DROITE : Encaissement + Stats     --}}
+        {{-- ───────────────────────────────────────── --}}
         <div class="space-y-4">
 
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 space-y-5
-                        sticky top-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 space-y-5 sticky top-4">
 
                 {{-- Total à payer --}}
                 <div class="text-center p-4 bg-primary-50 dark:bg-primary-900/20 rounded-xl">
@@ -199,63 +252,82 @@
                 </div>
 
                 {{-- Montant reçu --}}
-                <div>
+                <div x-data="{ focused: false }">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         💵 Montant reçu (KMF)
                     </label>
                     <input
                         type="number"
-                        wire:model.live="paidAmount"
+                        wire:model.live.debounce.600ms="paidAmount"
                         placeholder="0"
-                        class="w-full rounded-lg border-gray-300 dark:border-gray-600
-                               dark:bg-gray-700 dark:text-white text-2xl text-center
-                               font-bold py-3 focus:ring-2 focus:ring-primary-500"
-                        min="0" />
+                        inputmode="numeric"
+                        class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-2xl text-center font-bold py-3 focus:ring-2 focus:ring-primary-500"
+                        min="0"
+                        step="1"
+                        x-on:focus="$el.select()"
+                    />
 
+                    {{-- Billets rapides --}}
                     <div class="grid grid-cols-3 gap-2 mt-2">
                         @foreach([500, 1000, 2000, 5000, 10000, 20000] as $amount)
-                        <button
-                            wire:click="$set('paidAmount', {{ $amount }})"
-                            class="py-2 px-1 rounded-lg text-sm font-medium
-                                       bg-gray-100 dark:bg-gray-700
-                                       hover:bg-primary-100 dark:hover:bg-primary-900/30
-                                       text-gray-700 dark:text-gray-300
-                                       transition-colors">
-                            {{ number_format($amount, 0, ',', ' ') }}
-                        </button>
+                            <button
+                                type="button"
+                                wire:click="$set('paidAmount', {{ $amount }})"
+                                class="py-2 px-1 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 hover:bg-primary-100 dark:hover:bg-primary-900/30 text-gray-700 dark:text-gray-300 transition-colors"
+                            >
+                                {{ number_format($amount, 0, ',', ' ') }}
+                            </button>
                         @endforeach
                     </div>
 
                     @if($this->getTotal() > 0)
-                    <button
-                        wire:click="$set('paidAmount', {{ $this->getTotal() }})"
-                        class="w-full mt-2 py-2 rounded-lg text-sm font-medium
-                                   bg-gray-200 dark:bg-gray-600
-                                   hover:bg-gray-300 dark:hover:bg-gray-500
-                                   text-gray-700 dark:text-gray-200
-                                   transition-colors">
-                        Montant exact
-                    </button>
+                        @php
+                            $total  = $this->getTotal();
+                            $rounds = [];
+                            // Arrondi aux 500 KMF supérieurs s'il est différent du total exact
+                            $ceil500 = ceil($total / 500) * 500;
+                            if ($ceil500 != $total) { $rounds[] = (int)$ceil500; }
+                            // Arrondi aux 1 000 KMF supérieurs
+                            $ceil1000 = ceil($total / 1000) * 1000;
+                            if ($ceil1000 != $ceil500 && $ceil1000 != $total) { $rounds[] = (int)$ceil1000; }
+                        @endphp
+
+                        <div class="flex gap-2 mt-2">
+                            <button
+                                type="button"
+                                wire:click="$set('paidAmount', {{ $total }})"
+                                class="flex-1 py-2 rounded-lg text-sm font-semibold bg-primary-100 dark:bg-primary-900/30 hover:bg-primary-200 dark:hover:bg-primary-900/50 text-primary-700 dark:text-primary-300 transition-colors"
+                            >
+                                Exact
+                            </button>
+                            @foreach($rounds as $r)
+                                <button
+                                    type="button"
+                                    wire:click="$set('paidAmount', {{ $r }})"
+                                    class="flex-1 py-2 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors"
+                                >
+                                    {{ number_format($r, 0, ',', ' ') }}
+                                </button>
+                            @endforeach
+                        </div>
                     @endif
                 </div>
 
                 {{-- Monnaie à rendre --}}
                 @if($paidAmount > 0)
-                <div @class([ 'text-center p-4 rounded-xl' , 'bg-green-50 dark:bg-green-900/20'=> $this->getChange() >= 0,
-                    'bg-red-50 dark:bg-red-900/20' => $this->getChange() < 0,
-                        ])>
-                        <p class="text-sm font-medium mb-1
-                                  {{ $this->getChange() >= 0 ? 'text-green-600' : 'text-red-500' }}">
-                            {{ $this->getChange() >= 0 ? '💚 Monnaie à rendre' : '⚠️ Manque' }}
+                    @php
+                        $change = $this->getChange();
+                        $isPositive = $change >= 0;
+                    @endphp
+                    <div class="text-center p-4 rounded-xl {{ $isPositive ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20' }}">
+                        <p class="text-sm font-medium mb-1 {{ $isPositive ? 'text-green-600' : 'text-red-500' }}">
+                            {{ $isPositive ? '💚 Monnaie à rendre' : '⚠️ Manque' }}
                         </p>
-                        <p class="text-3xl font-bold
-                                  {{ $this->getChange() >= 0
-                                      ? 'text-green-600 dark:text-green-400'
-                                      : 'text-red-500 dark:text-red-400' }}">
-                            {{ number_format(abs($this->getChange()), 0, ',', ' ') }}
+                        <p class="text-3xl font-bold {{ $isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400' }}">
+                            {{ number_format(abs($change), 0, ',', ' ') }}
                             <span class="text-base">KMF</span>
                         </p>
-                </div>
+                    </div>
                 @endif
 
                 {{-- Note --}}
@@ -267,50 +339,48 @@
                         type="text"
                         wire:model="note"
                         placeholder="Ex: client habituel..."
-                        class="w-full rounded-lg border-gray-300 dark:border-gray-600
-                               dark:bg-gray-700 dark:text-white text-sm py-2" />
+                        class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm py-2"
+                    />
                 </div>
 
-                {{-- Bouton valider --}}
+                {{-- Valider vente comptant --}}
+                @php $canComplete = !empty($cart) && $paidAmount >= $this->getTotal(); @endphp
                 <button
                     wire:click="completeSale"
                     wire:loading.attr="disabled"
-                    @class([ 'w-full py-4 rounded-xl font-bold text-lg transition-all' , 'bg-primary-600 hover:bg-primary-700 text-white shadow-lg hover:shadow-xl'=> !empty($cart) && $paidAmount >= $this->getTotal(),
-                    'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                    => empty($cart) || $paidAmount < $this->getTotal(),
-                        ])
-                        {{ empty($cart) || $paidAmount < $this->getTotal() ? 'disabled' : '' }}
-                        >
-                        <span wire:loading.remove wire:target="completeSale">
-                            ✅ Valider la vente
-                        </span>
-                        <span wire:loading wire:target="completeSale">
-                            ⏳ Enregistrement...
-                        </span>
+                    class="w-full py-4 rounded-xl font-bold text-lg transition-colors {{ $canComplete ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-lg' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed' }}"
+                    {{ $canComplete ? '' : 'disabled' }}
+                >
+                    <span wire:loading.remove wire:target="completeSale">✅ Valider la vente</span>
+                    <span wire:loading wire:target="completeSale">⏳ Enregistrement...</span>
                 </button>
 
+                {{-- Vente à crédit --}}
+                <button
+                    wire:click="openCreditModal"
+                    class="w-full py-3 rounded-xl font-bold text-lg bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                >
+                    📒 Vente à crédit
+                </button>
             </div>
 
             {{-- Ventes du jour --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
-                <h3 class="font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                    📊 Aujourd'hui
-                </h3>
+                <h3 class="font-semibold text-gray-700 dark:text-gray-300 mb-3">📊 Aujourd'hui</h3>
+
                 @php
-                $shop = \Filament\Facades\Filament::getTenant();
-                $todaySales = $shop->sales()
-                ->whereDate('created_at', today())
-                ->where('status', 'completed')
-                ->get();
-                $todayTotal = $todaySales->sum('total_amount');
-                $todayCount = $todaySales->count();
+                    $shop = \Filament\Facades\Filament::getTenant();
+                    $todaySales = $shop->sales()
+                        ->whereDate('created_at', today())
+                        ->where('status', 'completed')
+                        ->get();
+                    $todayTotal = $todaySales->sum('total_amount');
+                    $todayCount = $todaySales->count();
                 @endphp
 
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
-                        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            {{ $todayCount }}
-                        </p>
+                        <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $todayCount }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">Ventes</p>
                     </div>
                     <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
@@ -322,6 +392,284 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    {{-- ══════════════════════════════════════════════════════ --}}
+    {{-- MODAL REÇU                                            --}}
+    {{-- ══════════════════════════════════════════════════════ --}}
+    @if(!empty($lastSale))
+        @php
+            $receipt = $lastSale;
+            $waLines  = "*🧾 REÇU — {$receipt['reference']}*\n";
+            $waLines .= str_repeat('—', 22) . "\n";
+            foreach ($receipt['items'] as $it) {
+                $waLines .= "• {$it['product_name']} × {$it['quantity']} {$it['unit']}\n";
+                $waLines .= "  " . number_format($it['subtotal'], 0, ',', ' ') . " KMF\n";
+            }
+            $waLines .= str_repeat('—', 22) . "\n";
+            $waLines .= "*TOTAL : " . number_format($receipt['total'], 0, ',', ' ') . " KMF*\n";
+            if ($receipt['type'] === 'comptant') {
+                $waLines .= "Payé : " . number_format($receipt['paid'], 0, ',', ' ') . " KMF\n";
+                if ($receipt['change'] > 0) {
+                    $waLines .= "Monnaie : " . number_format($receipt['change'], 0, ',', ' ') . " KMF";
+                }
+            } else {
+                $waLines .= "📒 Crédit · Client : {$receipt['customer']}";
+            }
+        @endphp
+
+        <div
+            x-data
+            x-show="$wire.showReceiptModal"
+            x-cloak
+            x-transition:enter="transition-opacity ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition-opacity ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            @keydown.escape.window="$wire.closeReceipt()"
+        >
+            <div
+                x-show="$wire.showReceiptModal"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                x-transition:leave="transition ease-in duration-150"
+                x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+                class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            >
+                <div class="flex items-center justify-between p-6 border-b dark:border-gray-700">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white">🧾 Reçu</h2>
+                        <p class="text-xs text-gray-400 font-mono mt-0.5">{{ $receipt['reference'] }}</p>
+                    </div>
+                    <button wire:click="closeReceipt" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                        <x-heroicon-o-x-mark class="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    @if($receipt['type'] === 'crédit')
+                        <div class="bg-orange-50 dark:bg-orange-900/20 rounded-lg px-4 py-2 flex items-center gap-2">
+                            <span class="text-orange-500">📒</span>
+                            <span class="text-sm font-medium text-orange-700 dark:text-orange-300">
+                                Vente à crédit · {{ $receipt['customer'] }}
+                            </span>
+                        </div>
+                    @endif
+
+                    <div class="space-y-2">
+                        @foreach($receipt['items'] as $it)
+                            <div class="flex justify-between items-start text-sm">
+                                <span class="text-gray-700 dark:text-gray-300">
+                                    {{ $it['product_name'] }}
+                                    <span class="text-gray-400">× {{ $it['quantity'] }} {{ $it['unit'] }}</span>
+                                    @if(($it['discount_amount'] ?? 0) > 0)
+                                        <span class="text-green-600 text-xs ml-1">
+                                            (−{{ number_format($it['discount_amount'], 0, ',', ' ') }} KMF)
+                                        </span>
+                                    @endif
+                                </span>
+                                <span class="font-medium text-gray-900 dark:text-white whitespace-nowrap ml-4">
+                                    {{ number_format($it['subtotal'], 0, ',', ' ') }} KMF
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @php $receiptDiscount = collect($receipt['items'])->sum('discount_amount'); @endphp
+                    <div class="border-t dark:border-gray-700 pt-3 space-y-1">
+                        @if($receiptDiscount > 0)
+                            <div class="flex justify-between text-sm text-green-600 dark:text-green-400">
+                                <span>Remise</span>
+                                <span>−{{ number_format($receiptDiscount, 0, ',', ' ') }} KMF</span>
+                            </div>
+                        @endif
+                        <div class="flex justify-between text-lg font-bold">
+                            <span class="text-gray-900 dark:text-white">Total</span>
+                            <span class="text-primary-600 dark:text-primary-400">
+                                {{ number_format($receipt['total'], 0, ',', ' ') }} KMF
+                            </span>
+                        </div>
+                        @if($receipt['type'] === 'comptant')
+                            <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                                <span>Reçu</span>
+                                <span>{{ number_format($receipt['paid'], 0, ',', ' ') }} KMF</span>
+                            </div>
+                            @if($receipt['change'] > 0)
+                                <div class="flex justify-between text-sm font-semibold text-green-600 dark:text-green-400">
+                                    <span>Monnaie à rendre</span>
+                                    <span>{{ number_format($receipt['change'], 0, ',', ' ') }} KMF</span>
+                                </div>
+                            @endif
+                        @endif
+                    </div>
+
+                    @if($receipt['note'])
+                        <p class="text-xs text-gray-400 italic">Note : {{ $receipt['note'] }}</p>
+                    @endif
+
+                    <div class="flex gap-3 pt-2">
+                        <a
+                            href="https://wa.me/?text={{ rawurlencode($waLines) }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="flex-1 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold text-center text-sm transition-colors"
+                        >
+                            📱 Partager WhatsApp
+                        </a>
+                        <button
+                            onclick="(function(){var w=window.open('','_blank','width=400,height=600');w.document.write(document.getElementById('receipt-print-content').innerHTML);w.document.close();w.focus();w.print();w.close();})()"
+                            type="button"
+                            class="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors"
+                            title="Imprimer"
+                        >🖨️</button>
+                        <button
+                            wire:click="closeReceipt"
+                            class="px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium transition-colors"
+                        >Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Contenu caché pour impression --}}
+        <div id="receipt-print-content" style="display:none">
+            <style>body{font-family:monospace;padding:16px;max-width:320px;margin:auto}h2{text-align:center}table{width:100%;border-collapse:collapse}td{padding:2px 0}hr{border:none;border-top:1px dashed #000}</style>
+            <h2>🧾 {{ $receipt['reference'] }}</h2>
+            <hr>
+            <table>
+                @foreach($receipt['items'] as $it)
+                    <tr>
+                        <td>{{ $it['product_name'] }} ×{{ $it['quantity'] }}</td>
+                        <td style="text-align:right">{{ number_format($it['subtotal'], 0, ',', ' ') }}</td>
+                    </tr>
+                @endforeach
+            </table>
+            <hr>
+            <table>
+                <tr>
+                    <td><strong>TOTAL</strong></td>
+                    <td style="text-align:right"><strong>{{ number_format($receipt['total'], 0, ',', ' ') }} KMF</strong></td>
+                </tr>
+                @if($receipt['type'] === 'comptant')
+                    <tr>
+                        <td>Payé</td>
+                        <td style="text-align:right">{{ number_format($receipt['paid'], 0, ',', ' ') }} KMF</td>
+                    </tr>
+                    @if($receipt['change'] > 0)
+                        <tr>
+                            <td>Monnaie</td>
+                            <td style="text-align:right">{{ number_format($receipt['change'], 0, ',', ' ') }} KMF</td>
+                        </tr>
+                    @endif
+                @else
+                    <tr><td colspan="2">📒 Crédit — {{ $receipt['customer'] }}</td></tr>
+                @endif
+            </table>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════════ --}}
+    {{-- MODAL VENTE À CRÉDIT                                  --}}
+    {{-- ══════════════════════════════════════════════════════ --}}
+    <div
+        x-data
+        x-show="$wire.showCreditModal"
+        x-cloak
+        x-transition:enter="transition-opacity ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition-opacity ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    >
+        <div
+            x-show="$wire.showCreditModal"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+            x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+            class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg p-6"
+        >
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">📒 Vente à crédit</h2>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Client</label>
+                <select
+                    wire:model="selectedCustomerId"
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                    <option value="">Sélectionner un client</option>
+                    @foreach(
+                        \Filament\Facades\Filament::getTenant()
+                            ->customers()
+                            ->where('is_active', true)
+                            ->orderBy('name')
+                            ->get()
+                        as $customer
+                    )
+                        <option value="{{ $customer->id }}">
+                            {{ $customer->name }}
+                            @if($customer->balance > 0)
+                                — Dette: {{ number_format($customer->balance, 0, ',', ' ') }} KMF
+                            @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Échéance (optionnel)</label>
+                <input
+                    type="date"
+                    wire:model="creditDueDate"
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Note</label>
+                <textarea
+                    wire:model="creditNote"
+                    rows="2"
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    placeholder="Optionnel..."
+                ></textarea>
+            </div>
+
+            <div class="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 mb-6">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Montant à crédit</span>
+                    <span class="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                        {{ number_format($this->getTotal(), 0, ',', ' ') }} KMF
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button
+                    wire:click="$set('showCreditModal', false)"
+                    class="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                    Annuler
+                </button>
+                <button
+                    wire:click="completeCreditSale"
+                    wire:loading.attr="disabled"
+                    class="px-5 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition-colors"
+                >
+                    <span wire:loading.remove wire:target="completeCreditSale">✅ Confirmer le crédit</span>
+                    <span wire:loading wire:target="completeCreditSale">⏳ Enregistrement...</span>
+                </button>
+            </div>
         </div>
     </div>
 

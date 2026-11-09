@@ -3,27 +3,48 @@
 namespace App\Filament\Commerce\Pages;
 
 use App\Filament\Commerce\Resources\SaleResource;
+use App\Models\Credit;
+use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\StockMovement;
+use App\Traits\HasShieldPermissionPages;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class Caisse extends Page
 {
+    use HasShieldPermissionPages;
     protected static ?string $navigationIcon  = 'heroicon-o-shopping-cart';
-    protected static ?string $navigationLabel = 'Caisse';
-    protected static ?string $title           = '💰 Caisse';
+    protected static ?string $navigationLabel = 'Boutique';
+    protected static ?string $title           = '💰 Boutique';
     protected static ?int    $navigationSort  = 1;
     // Pas de groupe → en haut de la navigation
     protected static ?string $navigationGroup = null;
 
     protected static string $view = 'filament.commerce.pages.caisse';
 
+
+    // Modal crédit
+    public bool $showCreditModal = false;
+
+    // Client sélectionné
+    public ?int $selectedCustomerId = null;
+
+    // Échéance optionnelle
+    public ?string $creditDueDate = null;
+
+    // Note crédit
+    public string $creditNote = '';
+
+    // Reçu de vente
+    public array $lastSale        = [];
+    public bool  $showReceiptModal = false;
     // ─────────────────────────────────────────────
     // PROPRIÉTÉS LIVEWIRE (état de la page)
     // ─────────────────────────────────────────────
@@ -47,9 +68,36 @@ class Caisse extends Page
     // INITIALISATION
     // ─────────────────────────────────────────────
 
+    /** Nombre maximum de produits affichés dans la liste */
+    private const PRODUCT_LIST_LIMIT = 60;
+
     public function mount(): void
     {
-        $this->searchResults = collect();
+        // La liste des produits est visible dès l'ouverture de la caisse
+        $this->loadProducts();
+    }
+
+    /**
+     * Charge les produits actifs du commerce, filtrés par $search s'il est renseigné.
+     */
+    private function loadProducts(): void
+    {
+        $term = trim($this->search);
+
+        $this->searchResults = Filament::getTenant()->products()
+            ->where('is_active', true)
+            ->when($term !== '', function ($query) use ($term) {
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                        ->orWhere('barcode', $term);
+                });
+            })
+            ->with(['category', 'unit'])
+            // Produits en stock d'abord, puis ordre alphabétique
+            ->orderByRaw('CASE WHEN stock_qty > 0 THEN 0 ELSE 1 END')
+            ->orderBy('name')
+            ->limit(self::PRODUCT_LIST_LIMIT)
+            ->get();
     }
 
     // ─────────────────────────────────────────────
@@ -89,22 +137,18 @@ class Caisse extends Page
      */
     public function updatedSearch(): void
     {
-        if (strlen($this->search) < 1) {
-            $this->searchResults = collect();
+        // Recherche vide → liste complète ; sinon → filtre
+        $this->loadProducts();
+
+        if (trim($this->search) === '') {
             return;
         }
 
-        $shop = Filament::getTenant();
-
-        $this->searchResults = $shop->products()
-            ->where('is_active', true)
-            ->where(function ($query) {
-                $query->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('barcode', $this->search); // Recherche par code-barres exact
-            })
-            ->with(['category', 'unit'])
-            ->limit(8) // Max 8 résultats pour rester lisible
-            ->get();
+        // Auto-add si correspondance exacte de code-barres (scan caméra)
+        $first = $this->searchResults->first();
+        if ($this->searchResults->count() === 1 && $first?->barcode === $this->search) {
+            $this->addToCart($first->id);
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -116,7 +160,10 @@ class Caisse extends Page
      */
     public function addToCart(int $productId): void
     {
-        $product = Product::find($productId);
+        $shop    = Filament::getTenant();
+        $product = $shop->products()
+            ->where('is_active', true)
+            ->find($productId);
 
         if (!$product) return;
 
@@ -146,22 +193,27 @@ class Caisse extends Page
 
             $this->cart[$productId]['quantity'] = $newQty;
             $this->cart[$productId]['subtotal']  = $newQty * $this->cart[$productId]['unit_price'];
+            // La remise de la ligne doit être ré-appliquée sur la nouvelle quantité
+            $this->recalculateItemDiscount($productId);
         } else {
             // Nouveau produit dans le panier
             $this->cart[$productId] = [
-                'product_id'   => $product->id,
-                'product_name' => $product->name,
-                'unit_price'   => (float) $product->sell_price,
-                'quantity'     => 1,
-                'subtotal'     => (float) $product->sell_price,
-                'stock_max'    => (float) $product->stock_qty,
-                'unit'         => $product->unit?->abbreviation ?? 'pcs',
+                'product_id'      => $product->id,
+                'product_name'    => $product->name,
+                'unit_price'      => (float) $product->sell_price,
+                'quantity'        => 1,
+                'subtotal'        => (float) $product->sell_price,
+                'stock_max'       => (float) $product->stock_qty,
+                'unit'            => $product->unit?->abbreviation ?? 'pcs',
+                'discount_type'   => 'percent',
+                'discount_value'  => 0,
+                'discount_amount' => 0,
             ];
         }
 
-        // Vider la recherche après ajout
-        $this->search        = '';
-        $this->searchResults = collect();
+        // Vider la recherche après ajout → on réaffiche la liste complète
+        $this->search = '';
+        $this->loadProducts();
     }
 
     /**
@@ -187,6 +239,77 @@ class Caisse extends Page
 
         $this->cart[$productId]['quantity'] = $quantity;
         $this->cart[$productId]['subtotal']  = $quantity * $this->cart[$productId]['unit_price'];
+        $this->recalculateItemDiscount($productId);
+    }
+
+    /**
+     * Déclenché quand cart.{id}.discount_type ou discount_value change
+     */
+    public function updatedCart(mixed $value, string $key): void
+    {
+        $parts = explode('.', $key);
+        if (count($parts) !== 2) return;
+        [$productId, $field] = $parts;
+        if (in_array($field, ['discount_type', 'discount_value'])) {
+            $this->recalculateItemDiscount((int) $productId);
+        }
+    }
+
+    /**
+     * SÉCURITÉ : $cart est un tableau Livewire public, donc modifiable côté navigateur
+     * ($wire.set('cart.12.unit_price', 1)). Avant tout encaissement on reconstruit
+     * chaque ligne à partir du prix en base, et on recalcule remises et sous-totaux.
+     */
+    private function rebuildCartFromDatabase(): void
+    {
+        $shop     = Filament::getTenant();
+        $products = $shop->products()
+            ->whereIn('id', array_map('intval', array_keys($this->cart)))
+            ->get()
+            ->keyBy('id');
+
+        foreach ($this->cart as $productId => $item) {
+            $product = $products->get((int) $productId);
+
+            if (! $product || (int) ($item['product_id'] ?? 0) !== (int) $productId) {
+                unset($this->cart[$productId]);
+                continue;
+            }
+
+            $this->cart[$productId]['product_id']   = $product->id;
+            $this->cart[$productId]['product_name'] = $product->name;
+            $this->cart[$productId]['unit_price']   = (float) $product->sell_price;
+            $this->cart[$productId]['quantity']     = max(0.01, (float) ($item['quantity'] ?? 1));
+            $this->cart[$productId]['discount_type'] = in_array($item['discount_type'] ?? 'percent', ['percent', 'fixed'], true)
+                ? $item['discount_type'] ?? 'percent'
+                : 'percent';
+
+            $this->recalculateItemDiscount((int) $productId);
+        }
+    }
+
+    private function recalculateItemDiscount(int $productId): void
+    {
+        if (!isset($this->cart[$productId])) return;
+        $item  = $this->cart[$productId];
+        $base  = (float) $item['unit_price'] * (float) $item['quantity'];
+        $type  = $item['discount_type'] ?? 'percent';
+        $value = max(0, (float) ($item['discount_value'] ?? 0));
+
+        // Une remise en % ne peut dépasser 100 % (sinon total négatif)
+        if ($type === 'percent') {
+            $value = min(100, $value);
+        }
+        $this->cart[$productId]['discount_value'] = $value;
+
+        $discAmount = $value > 0
+            ? ($type === 'percent'
+                ? round($base * $value / 100, 2)
+                : min(round($value, 2), $base))
+            : 0;
+
+        $this->cart[$productId]['discount_amount'] = $discAmount;
+        $this->cart[$productId]['subtotal']         = round($base - $discAmount, 2);
     }
 
     /**
@@ -205,6 +328,12 @@ class Caisse extends Page
         $this->cart       = [];
         $this->paidAmount = 0;
         $this->note       = '';
+    }
+
+    public function closeReceipt(): void
+    {
+        $this->lastSale        = [];
+        $this->showReceiptModal = false;
     }
 
     // ─────────────────────────────────────────────
@@ -226,7 +355,11 @@ class Caisse extends Page
             return;
         }
 
-        $total = $this->getTotal();
+        // Prix/remises recalculés côté serveur (le panier vient du navigateur)
+        $this->rebuildCartFromDatabase();
+
+        $total  = $this->getTotal();
+        $change = $this->getChange();
 
         if ($this->paidAmount < $total) {
             Notification::make()
@@ -239,52 +372,92 @@ class Caisse extends Page
 
         $shop = Filament::getTenant();
 
-        // ── Créer la vente ──
-        $sale = Sale::create([
-            'shop_id'       => $shop->id,
-            'user_id'       => auth()->id(),
-            'reference'     => Sale::generateReference($shop->id),
-            'status'        => 'completed',
-            'total_amount'  => $total,
-            'paid_amount'   => $this->paidAmount,
-            'change_amount' => $this->getChange(),
-            'note'          => $this->note,
-        ]);
+        try {
+            $sale = DB::transaction(function () use ($shop, $total) {
+                // Vérification du stock en temps réel avec verrou pessimiste
+                foreach ($this->cart as $item) {
+                    $product = $shop->products()
+                        ->lockForUpdate()
+                        ->find($item['product_id']);
 
-        // ── Créer les lignes et déduire le stock ──
-        foreach ($this->cart as $item) {
-            // Créer la ligne de vente
-            SaleItem::create([
-                'sale_id'      => $sale->id,
-                'product_id'   => $item['product_id'],
-                'product_name' => $item['product_name'],
-                'quantity'     => $item['quantity'],
-                'unit_price'   => $item['unit_price'],
-                'subtotal'     => $item['subtotal'],
-            ]);
+                    if (!$product || $product->stock_qty < $item['quantity']) {
+                        throw new \RuntimeException("Stock insuffisant pour « {$item['product_name']} ».");
+                    }
+                }
 
-            // Déduire du stock via un mouvement
-            // L'Observer StockMovementObserver se charge du reste
-            StockMovement::create([
-                'shop_id'    => $shop->id,
-                'product_id' => $item['product_id'],
-                'user_id'    => auth()->id(),
-                'type'       => 'out',
-                'quantity'   => $item['quantity'],
-                'reason'     => "Vente {$sale->reference}",
-            ]);
+                $totalDiscount = collect($this->cart)->sum('discount_amount');
+
+                $sale = Sale::create([
+                    'shop_id'         => $shop->id,
+                    'user_id'         => auth()->id(),
+                    'reference'       => Sale::generateReference($shop->id),
+                    'status'          => 'completed',
+                    'total_amount'    => $total,
+                    'paid_amount'     => $this->paidAmount,
+                    'change_amount'   => $this->getChange(),
+                    'discount_amount' => $totalDiscount,
+                    'note'            => $this->note,
+                ]);
+
+                foreach ($this->cart as $item) {
+                    SaleItem::create([
+                        'sale_id'        => $sale->id,
+                        'product_id'     => $item['product_id'],
+                        'product_name'   => $item['product_name'],
+                        'quantity'       => $item['quantity'],
+                        'unit_price'     => $item['unit_price'],
+                        'discount_type'  => ($item['discount_value'] ?? 0) > 0 ? ($item['discount_type'] ?? null) : null,
+                        'discount_value' => $item['discount_value'] ?? 0,
+                        'subtotal'       => $item['subtotal'],
+                    ]);
+
+                    StockMovement::create([
+                        'shop_id'    => $shop->id,
+                        'product_id' => $item['product_id'],
+                        'user_id'    => auth()->id(),
+                        'type'       => 'out',
+                        'quantity'   => $item['quantity'],
+                        'reason'     => "Vente {$sale->reference}",
+                    ]);
+                }
+
+                return $sale;
+            });
+
+            Notification::make()
+                ->title('✅ Vente enregistrée !')
+                ->body("Réf: {$sale->reference} | Monnaie: " . number_format($change, 0, ',', ' ') . " KMF")
+                ->success()
+                ->duration(5000)
+                ->send();
+
+            $cartSnapshot = $this->cart;
+            $paidPrev     = $this->paidAmount;
+            $notePrev     = $this->note;
+
+            $this->clearCart();
+
+            $this->lastSale = [
+                'reference' => $sale->reference,
+                'items'     => collect($cartSnapshot)->values()->toArray(),
+                'total'     => (int) $total,
+                'paid'      => (int) $paidPrev,
+                'change'    => (int) max(0, $paidPrev - $total),
+                'note'      => $notePrev,
+                'type'      => 'comptant',
+                'customer'  => null,
+            ];
+            $this->showReceiptModal = true;
+
+            $this->notifyLowStock($shop, $cartSnapshot);
+
+        } catch (\RuntimeException $e) {
+            Notification::make()
+                ->title('Erreur de stock')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
         }
-
-        // ── Notification de succès ──
-        Notification::make()
-            ->title('✅ Vente enregistrée !')
-            ->body("Réf: {$sale->reference} | Monnaie: " . number_format($this->getChange(), 0, ',', ' ') . " KMF")
-            ->success()
-            ->duration(5000)
-            ->send();
-
-        // ── Réinitialiser la caisse ──
-        $this->clearCart();
     }
 
     // ─────────────────────────────────────────────
@@ -300,5 +473,205 @@ class Caisse extends Page
                 ->color('gray')
                 ->url(fn() => SaleResource::getUrl('index')),
         ];
+    }
+
+    public function openCreditModal(): void
+    {
+        if (empty($this->cart)) {
+            Notification::make()
+                ->title('Panier vide')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->showCreditModal = true;
+    }
+
+    public function completeCreditSale(): void
+    {
+        if (!$this->selectedCustomerId) {
+            Notification::make()
+                ->title('Sélectionnez un client')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        if (empty($this->cart)) {
+            return;
+        }
+
+        // Prix/remises recalculés côté serveur (le panier vient du navigateur)
+        $this->rebuildCartFromDatabase();
+
+        $shop = Filament::getTenant();
+
+        // Valider que le client appartient à ce commerce
+        $customer = $shop->customers()->find($this->selectedCustomerId);
+        if (!$customer) {
+            Notification::make()
+                ->title('Client invalide')
+                ->body("Ce client n'appartient pas à ce commerce.")
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $total = $this->getTotal();
+
+        try {
+            $creditRef = DB::transaction(function () use ($shop, $customer, $total) {
+                // Vérification du stock en temps réel avec verrou pessimiste
+                foreach ($this->cart as $item) {
+                    $product = $shop->products()
+                        ->lockForUpdate()
+                        ->find($item['product_id']);
+
+                    if (!$product || $product->stock_qty < $item['quantity']) {
+                        throw new \RuntimeException("Stock insuffisant pour « {$item['product_name']} ».");
+                    }
+                }
+
+                $totalDiscount = collect($this->cart)->sum('discount_amount');
+
+                $sale = Sale::create([
+                    'shop_id'         => $shop->id,
+                    'user_id'         => auth()->id(),
+                    'customer_id'     => $customer->id,
+                    'payment_type'    => 'credit',
+                    'reference'       => Sale::generateReference($shop->id),
+                    'status'          => 'completed',
+                    'total_amount'    => $total,
+                    'paid_amount'     => 0,
+                    'change_amount'   => 0,
+                    'discount_amount' => $totalDiscount,
+                ]);
+
+                foreach ($this->cart as $item) {
+                    SaleItem::create([
+                        'sale_id'        => $sale->id,
+                        'product_id'     => $item['product_id'],
+                        'product_name'   => $item['product_name'],
+                        'quantity'       => $item['quantity'],
+                        'unit_price'     => $item['unit_price'],
+                        'discount_type'  => ($item['discount_value'] ?? 0) > 0 ? ($item['discount_type'] ?? null) : null,
+                        'discount_value' => $item['discount_value'] ?? 0,
+                        'subtotal'       => $item['subtotal'],
+                    ]);
+
+                    StockMovement::create([
+                        'shop_id'    => $shop->id,
+                        'product_id' => $item['product_id'],
+                        'user_id'    => auth()->id(),
+                        'type'       => 'out',
+                        'quantity'   => $item['quantity'],
+                        'reason'     => "Vente crédit {$sale->reference}",
+                    ]);
+                }
+
+                $credit = Credit::create([
+                    'shop_id'          => $shop->id,
+                    'sale_id'          => $sale->id,
+                    'customer_id'      => $customer->id,
+                    'user_id'          => auth()->id(),
+                    'reference'        => Credit::generateReference($shop->id),
+                    'status'           => 'pending',
+                    'total_amount'     => $total,
+                    'paid_amount'      => 0,
+                    'remaining_amount' => $total,
+                    'due_date'         => $this->creditDueDate,
+                    'description'      => 'Vente à crédit depuis la caisse',
+                    'note'             => $this->creditNote,
+                ]);
+
+                return $credit->reference;
+            });
+
+            Notification::make()
+                ->title('✅ Vente à crédit enregistrée')
+                ->body($customer->name . ' doit ' . number_format($total, 0, ',', ' ') . ' KMF')
+                ->success()
+                ->send();
+
+            $cartSnapshot = $this->cart;
+            $customerName = $customer->name;
+
+            $this->clearCart();
+            $this->showCreditModal    = false;
+            $this->selectedCustomerId = null;
+            $this->creditDueDate      = null;
+            $this->creditNote         = '';
+
+            $this->lastSale = [
+                'reference' => $creditRef,
+                'items'     => collect($cartSnapshot)->values()->toArray(),
+                'total'     => (int) $total,
+                'paid'      => 0,
+                'change'    => 0,
+                'note'      => '',
+                'type'      => 'crédit',
+                'customer'  => $customerName,
+            ];
+            $this->showReceiptModal = true;
+
+            $this->notifyLowStock($shop, $cartSnapshot);
+
+        } catch (\RuntimeException $e) {
+            Notification::make()
+                ->title('Erreur de stock')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    private function notifyLowStock(mixed $shop, array $cartSnapshot): void
+    {
+        try {
+            $productIds = array_column($cartSnapshot, 'product_id');
+
+            $products = $shop->products()
+                ->with('unit')
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            $outOfStock = [];
+            $lowStock   = [];
+
+            foreach ($cartSnapshot as $item) {
+                $product = $products->get($item['product_id']);
+                if (!$product) continue;
+
+                if ($product->stock_qty <= 0) {
+                    $outOfStock[] = $product->name;
+                } elseif ($product->isLowStock()) {
+                    $unit = $product->unit?->abbreviation ?? '';
+                    $lowStock[] = "{$product->name} (reste {$product->stock_qty} {$unit})";
+                }
+            }
+
+            if (!empty($outOfStock)) {
+                Notification::make()
+                    ->title('🔴 Rupture de stock !')
+                    ->body('À réapprovisionner : ' . implode(', ', $outOfStock))
+                    ->danger()
+                    ->persistent()
+                    ->send();
+            }
+
+            if (!empty($lowStock)) {
+                Notification::make()
+                    ->title('🟠 Stock bas')
+                    ->body(implode(' · ', $lowStock))
+                    ->warning()
+                    ->duration(8000)
+                    ->send();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

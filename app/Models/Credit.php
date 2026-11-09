@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
+
+class Credit extends Model
+{
+    protected $fillable = [
+        'shop_id',
+        'customer_id',
+        'user_id',
+        'reference',
+        'status',
+        'total_amount',
+        'paid_amount',
+        'remaining_amount',
+        'due_date',
+        'description',
+        'note',
+        'sale_id',
+    ];
+
+    protected $casts = [
+        'total_amount'     => 'decimal:2',
+        'paid_amount'      => 'decimal:2',
+        'remaining_amount' => 'decimal:2',
+        'due_date'         => 'date',
+    ];
+
+    // ─────────────────────────────────────────────
+    // RELATIONS
+    // ─────────────────────────────────────────────
+
+    public function shop(): BelongsTo
+    {
+        return $this->belongsTo(Shop::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(CreditPayment::class);
+    }
+
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
+    }
+
+    // ─────────────────────────────────────────────
+    // METHODES STATIQUES
+    // ─────────────────────────────────────────────
+
+    public static function generateReference(int $shopId): string
+    {
+        return DB::transaction(function () use ($shopId) {
+            $date   = now()->format('Ymd');
+            $prefix = "CRD-{$date}";
+
+            $lastCredit = static::where('shop_id', $shopId)
+                ->where('reference', 'like', $prefix . '%')
+                ->lockForUpdate()
+                ->orderBy('reference', 'desc')
+                ->first();
+
+            $lastNumber = $lastCredit ? (int) substr($lastCredit->reference, -4) : 0;
+
+            return $prefix . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        });
+    }
+
+    /**
+     * Statut dérivé des montants (source unique de vérité pour observers et formulaires)
+     */
+    public static function deriveStatus(float $paidAmount, float $remainingAmount): string
+    {
+        return match (true) {
+            $remainingAmount <= 0 => 'paid',
+            $paidAmount > 0       => 'partial',
+            default               => 'pending',
+        };
+    }
+
+    // ─────────────────────────────────────────────
+    // ACCESSEURS
+    // ─────────────────────────────────────────────
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'pending' => '🔴 Non remboursé',
+            'partial' => '🟠 Partiellement remboursé',
+            'paid'    => '✅ Soldé',
+            default   => $this->status,
+        };
+    }
+
+    public function getStatusColorAttribute(): string
+    {
+        return match ($this->status) {
+            'pending' => 'danger',
+            'partial' => 'warning',
+            'paid'    => 'success',
+            default   => 'gray',
+        };
+    }
+
+    /**
+     * Le crédit est-il en retard ?
+     */
+    public function isOverdue(): bool
+    {
+        return $this->due_date !== null
+            && now()->startOfDay()->gt($this->due_date->copy()->endOfDay())
+            && $this->status !== 'paid';
+    }
+
+    // ─────────────────────────────────────────────
+    // SCOPES
+    // ─────────────────────────────────────────────
+
+    public function scopeOverdue($query)
+    {
+        return $query->whereIn('status', ['pending', 'partial'])
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', today());
+    }
+
+    public function scopeExpiringSoon($query, int $days = 7)
+    {
+        return $query->whereIn('status', ['pending', 'partial'])
+            ->whereNotNull('due_date')
+            ->whereBetween('due_date', [today(), today()->addDays($days)]);
+    }
+}

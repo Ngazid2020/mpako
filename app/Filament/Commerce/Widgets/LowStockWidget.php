@@ -2,20 +2,25 @@
 
 namespace App\Filament\Commerce\Widgets;
 
-use App\Models\Product;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
 class LowStockWidget extends Widget
 {
-    protected static ?int    $sort            = 4;
+    public static function canView(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'commerce';
+    }
+    protected static ?int    $sort            = 0;
     protected static ?string $pollingInterval = '60s';
-    
+
     // Ce widget prend toute la largeur
     protected int | string | array $columnSpan = 'full';
 
     protected static string $view = 'filament.commerce.widgets.low-stock-widget';
+
+
 
     public function getLowStockProducts(): Collection
     {

@@ -4,19 +4,23 @@ namespace App\Providers\Filament;
 
 use App\Filament\Commerce\Pages\Dashboard;
 use App\Models\Shop;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
+use Filament\Navigation\NavigationItem;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class CommercePanelProvider extends PanelProvider
@@ -31,21 +35,25 @@ class CommercePanelProvider extends PanelProvider
             ->path('commerce')
 
             // Connexion + inscription (le commerçant peut s'inscrire seul)
-            ->login()
-            ->registration()
+            ->login(\App\Filament\Commerce\Pages\Auth\Login::class)
+            ->registration(\App\Filament\Commerce\Pages\Auth\Register::class)
 
             // Couleurs — Bleu pour le commerce (confiance, sérieux)
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => Color::hex('#0e6464'),
             ])
 
-            // Nom visible
-            ->brandName('KomorShop')
-
+            // Logo et favicon
+            ->brandLogo(asset('images/logo-filament-beez.png'))
+            ->brandLogoHeight('2.75rem')
+            ->favicon(asset('images/favicon-32.png'))
+            ->viteTheme('resources/css/filament/commerce/theme.css')
             // ──────────────────────────────────────
             // MULTITENANCY : La clé de tout !
             // ──────────────────────────────────────
             ->tenant(Shop::class, ownershipRelationship: 'shop', slugAttribute: 'slug')
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('60s')
 
             // Le commerçant peut créer/modifier son commerce depuis le panel
             ->tenantRegistration(\App\Filament\Commerce\Pages\RegisterShop::class)
@@ -60,7 +68,11 @@ class CommercePanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
-
+            // ✅ BOUTON : Retour vers Admin (si superadmin)
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                fn(): string => Blade::render('@include("filament.components.switch-panel-button")')
+            )
             // Middleware
             ->middleware([
                 EncryptCookies::class,
@@ -76,6 +88,40 @@ class CommercePanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ;
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn(): string => Blade::render('@laravelPWA')
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => Blade::render('@include("filament.components.pwa-install-prompt")')
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => auth()->check() ? Blade::render('@include("filament.components.push-subscribe")') : ''
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => '<div x-data @open-print-window.window="window.open($event.detail.url, \'_blank\')"></div>'
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => Auth::check() ? Blade::render('@include("filament.components.mobile-bottom-nav")') : ''
+            )
+            // Mode hors ligne : préchargement + bannière de bascule quand la connexion tombe
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn(): string => Auth::check() && Filament::getTenant()
+                    ? Blade::render('@include("filament.components.offline-bridge", ["shop" => $shop])', ['shop' => Filament::getTenant()])
+                    : ''
+            )
+            ->navigationItems([
+                NavigationItem::make('Mode hors ligne')
+                    ->icon('heroicon-o-signal-slash')
+                    ->url(fn(): string => route('commerce.offline', ['shop' => Filament::getTenant()?->slug ?? '']))
+                    ->visible(fn(): bool => Filament::getTenant() !== null)
+                    ->sort(2),
+            ])
+        ;
     }
 }

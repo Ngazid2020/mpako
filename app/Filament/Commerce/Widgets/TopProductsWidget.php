@@ -3,15 +3,17 @@
 namespace App\Filament\Commerce\Widgets;
 
 use App\Models\SaleItem;
+use App\Traits\HasShieldPermission;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
 class TopProductsWidget extends Widget
 {
+    use HasShieldPermission;
     protected static ?int    $sort        = 3;
     protected static ?string $pollingInterval = '60s';
-    
+
     // Colonne : ce widget prend la moitié droite
     protected int | string | array $columnSpan = 1;
 
@@ -20,11 +22,12 @@ class TopProductsWidget extends Widget
     // Filtre de période
     public string $period = '7days';
 
+
     public function getTopProducts(): Collection
     {
         $shop = Filament::getTenant();
 
-        $days = match($this->period) {
+        $days = match ($this->period) {
             '30days' => 30,
             'month'  => now()->daysInMonth,
             default  => 7,

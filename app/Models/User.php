@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
@@ -13,55 +11,52 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Laravel\Sanctum\HasApiTokens;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles, HasPushSubscriptions;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
+        'phone',
         'email',
         'password',
+        'is_approved',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_admin' => 'boolean',
+            'email_verified_at'         => 'datetime',
+            'password'                  => 'hashed',
+            'is_admin'                  => 'boolean',
+            'is_approved'               => 'boolean',
+            'two_factor_secret'         => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at'   => 'datetime',
         ];
+    }
+
+    public function hasEnabledTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null;
     }
 
     // ─────────────────────────────────────────────
     // RELATIONS
     // ─────────────────────────────────────────────
 
-    /**
-     * Les commerces auxquels cet utilisateur a accès.
-     */
     public function shops(): BelongsToMany
     {
         return $this->belongsToMany(Shop::class, 'shop_user')
@@ -72,20 +67,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     // FILAMENT : Accès aux panels
     // ─────────────────────────────────────────────
 
-    /**
-     * Qui peut accéder à quel panel ?
-     */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Le panel admin n'est accessible qu'aux super-admins
         if ($panel->getId() === 'admin') {
             return $this->is_admin === true;
-            // return true;
         }
 
-        // Le panel commerce est accessible à tout utilisateur actif
+        // Le panel commerce nécessite un compte approuvé par l'admin
         if ($panel->getId() === 'commerce') {
-            return true;
+            return $this->is_approved === true;
         }
 
         return false;
@@ -95,18 +85,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     // FILAMENT : Multitenancy
     // ─────────────────────────────────────────────
 
-    /**
-     * Retourne les tenants (commerces) auxquels l'utilisateur a accès.
-     * Filament affichera un sélecteur si l'user a plusieurs commerces.
-     */
     public function getTenants(Panel $panel): Collection
     {
         return $this->shops;
     }
 
-    /**
-     * Vérifie si l'utilisateur peut accéder à un tenant donné.
-     */
     public function canAccessTenant(Model $tenant): bool
     {
         return $this->shops()->whereKey($tenant)->exists();

@@ -12,12 +12,14 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -28,15 +30,26 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Admin\Pages\Auth\Login::class)
+            ->brandLogo(asset('images/logo-filament-beez.png'))
+            ->brandLogoHeight('2.75rem')
+            ->favicon(asset('images/favicon-32.png'))
             ->colors([
                 'primary' => Color::Emerald,
             ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
+            ->discoverPages(
+                in: app_path('Filament/Commerce/Pages'),
+                for: 'App\\Filament\\Commerce\\Pages'
+            )
             ->pages([
                 Pages\Dashboard::class,
             ])
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                fn (): string => Blade::render('@include("filament.components.switch-panel-button")')
+            )
             ->plugins([
                 FilamentShieldPlugin::make()
                     ->gridColumns([
@@ -56,6 +69,10 @@ class AdminPanelProvider extends PanelProvider
                     ]),
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
+            ->discoverWidgets(
+                in: app_path('Filament/Commerce/Widgets'),
+                for: 'App\\Filament\\Commerce\\Widgets'
+            )
             ->widgets([
                 // Widgets\AccountWidget::class,
                 // Widgets\FilamentInfoWidget::class,

@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    .ol-input {
+        @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500;
+    }
+    .ol-label {
+        @apply mb-1 block text-sm font-medium text-gray-700;
+    }
+    .ol-btn {
+        @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+    }
+    .ol-btn-primary {
+        @apply ol-btn bg-primary-600 text-white hover:bg-primary-700;
+    }
+    .ol-btn-light {
+        @apply ol-btn bg-gray-100 text-gray-800 hover:bg-gray-200;
+    }
+    .ol-btn-danger {
+        @apply ol-btn bg-red-50 text-red-700 hover:bg-red-100;
+    }
+    .ol-card {
+        @apply rounded-xl bg-white shadow-sm ring-1 ring-gray-200;
+    }
+    .ol-badge {
+        @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    }
+}
+
+[x-cloak] {
+    display: none !important;
+}

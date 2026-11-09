@@ -37,17 +37,29 @@ class UserResource extends Resource
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('phone')
+                            ->label('Téléphone')
+                            ->tel()
+                            ->required()
+                            ->unique(User::class, ignoreRecord: true)
+                            ->maxLength(30)
+                            ->placeholder('+269 321 00 00'),
 
                         Forms\Components\TextInput::make('password')
                             ->label('Mot de passe')
                             ->password()
-                            ->required(fn (string $operation): bool => $operation === 'create')
-                            ->dehydrated(fn (?string $state): bool => filled($state))
+                            ->required(fn(string $operation): bool => $operation === 'create')
+                            ->dehydrated(fn(?string $state): bool => filled($state))
                             ->maxLength(255),
 
                         Forms\Components\Toggle::make('is_admin')
                             ->label('Super-administrateur')
                             ->helperText('Donne accès au panel d\'administration'),
+
+                        Forms\Components\Toggle::make('is_approved')
+                            ->label('Compte approuvé')
+                            ->helperText('Autorise l\'accès au panel commerce')
+                            ->default(true),
                     ])
                     ->columns(2),
 
@@ -82,6 +94,10 @@ class UserResource extends Resource
                     ->label('Admin')
                     ->boolean(),
 
+                Tables\Columns\ToggleColumn::make('is_approved')
+                    ->label('Approuvé')
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('shops.name')
                     ->label('Commerces')
                     ->badge()
@@ -95,7 +111,12 @@ class UserResource extends Resource
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_admin')
                     ->label('Administrateur'),
+                Tables\Filters\TernaryFilter::make('is_approved')
+                    ->label('Compte approuvé')
+                    ->trueLabel('Approuvés')
+                    ->falseLabel('En attente'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])

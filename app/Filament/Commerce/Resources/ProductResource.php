@@ -90,10 +90,11 @@ class ProductResource extends Resource
                                 return $shop->units()->create($data)->id;
                             }),
 
-                        Forms\Components\TextInput::make('barcode')
-                            ->label('Code-barres')
-                            ->placeholder('Scanner ou saisir...')
-                            ->maxLength(255),
+                        // Code-barres désactivé temporairement
+                        // Forms\Components\TextInput::make('barcode')
+                        //     ->label('Code-barres')
+                        //     ->placeholder('Scanner ou saisir...')
+                        //     ->maxLength(255),
                     ])
                     ->columns(2),
 
@@ -133,7 +134,12 @@ class ProductResource extends Resource
                             ->numeric()
                             ->default(0)
                             ->minValue(0)
-                            ->helperText('Stock de départ lors de la création'),
+                            // Après création, le stock ne change QUE via des mouvements (traçabilité)
+                            ->disabled(fn(?\App\Models\Product $record) => $record !== null)
+                            ->dehydrated(fn(?\App\Models\Product $record) => $record === null)
+                            ->helperText(fn(?\App\Models\Product $record) => $record
+                                ? 'Pour corriger le stock, utilisez un mouvement de stock (ajustement).'
+                                : 'Stock de départ lors de la création'),
 
                         Forms\Components\TextInput::make('stock_alert')
                             ->label('Seuil d\'alerte')
@@ -203,7 +209,7 @@ class ProductResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
                     ->label('Catégorie')
-                    ->relationship('category', 'name'),
+                    ->relationship('category', 'name', fn ($query) => $query->where('shop_id', Filament::getTenant()?->getKey())),
 
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Statut'),
@@ -218,10 +224,32 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                // Impression d'étiquettes désactivée temporairement
+                // Tables\Actions\Action::make('print_label')
+                //     ->label('Étiquette')
+                //     ->icon('heroicon-o-printer')
+                //     ->color('gray')
+                //     ->url(fn (Product $record): string => route('labels.print', [
+                //         'shop' => Filament::getTenant()->slug,
+                //         'ids'  => (string) $record->id,
+                //     ]))
+                //     ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\BulkAction::make('print_labels')
+                    //     ->label('Imprimer les étiquettes')
+                    //     ->icon('heroicon-o-printer')
+                    //     ->color('gray')
+                    //     ->deselectRecordsAfterCompletion()
+                    //     ->action(function (\Illuminate\Database\Eloquent\Collection $records, \Livewire\Component $livewire): void {
+                    //         $url = route('labels.print', [
+                    //             'shop' => Filament::getTenant()->slug,
+                    //             'ids'  => $records->pluck('id')->implode(','),
+                    //         ]);
+                    //         $livewire->dispatch('open-print-window', url: $url);
+                    //     }),
                 ]),
             ]);
     }

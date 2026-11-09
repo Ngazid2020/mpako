@@ -1,0 +1,35 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-BuFpHdbV.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/filament/commerce/theme.css": {
+    "file": "assets/theme-BPXzbaxy.css",
+    "src": "resources/css/filament/commerce/theme.css",
+    "isEntry": true
+  },
+  "resources/css/offline.css": {
+    "file": "assets/offline-CewS7osL.css",
+    "src": "resources/css/offline.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-UyRVujZY.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/landing.js": {
+    "file": "assets/landing-CljbBu5S.js",
+    "name": "landing",
+    "src": "resources/js/landing.js",
+    "isEntry": true
+  },
+  "resources/js/offline/app.js": {
+    "file": "assets/app-BFkd2ACK.js",
+    "name": "app",
+    "src": "resources/js/offline/app.js",
+    "isEntry": true
+  }
+}

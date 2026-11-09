@@ -2,15 +2,25 @@
 
 namespace App\Filament\Commerce\Widgets;
 
+use App\Traits\HasShieldPermission;
+use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Cache;
 
-class StatsOverviewWidget extends BaseWidget
+class StatsOverviewWidget extends BaseWidget implements HasShieldPermissions
 {
-    // Rafraîchissement automatique toutes les 30 secondes
-    protected static ?string $pollingInterval = '30s';
+    use HasShieldPermission;
+    public static function getPermissionPrefixes(): array
+    {
+        return [
+            'view',
+        ];
+    }
+
+    protected static ?string $pollingInterval = '60s';
     protected int | string | array $columnSpan = 'full';
     // Ce widget est en haut du dashboard
     protected static ?int $sort = 1;
@@ -19,46 +29,66 @@ class StatsOverviewWidget extends BaseWidget
     {
         $shop = Filament::getTenant();
 
-        // ── Ventes du jour ──
-        $todaySales = $shop->sales()
-            ->whereDate('created_at', today())
-            ->where('status', 'completed');
+        $d = Cache::remember("stats_overview_{$shop->id}", 55, function () use ($shop) {
+            // ── Ventes du jour ──
+            $todaySales = $shop->sales()->whereDate('created_at', today())->where('status', 'completed');
 
-        $todayCount  = $todaySales->count();
-        $todayAmount = $todaySales->sum('total_amount');
+            $todayCount  = $todaySales->count();
+            $todayAmount = $todaySales->sum('total_amount');
 
-        // ── Ventes d'hier (pour la comparaison) ──
-        $yesterdaySales = $shop->sales()
-            ->whereDate('created_at', Carbon::yesterday())
-            ->where('status', 'completed');
+            // ── Ventes d'hier ──
+            $yesterdaySales = $shop->sales()->whereDate('created_at', Carbon::yesterday())->where('status', 'completed');
 
-        $yesterdayCount  = $yesterdaySales->count();
-        $yesterdayAmount = $yesterdaySales->sum('total_amount');
+            $yesterdayCount  = $yesterdaySales->count();
+            $yesterdayAmount = $yesterdaySales->sum('total_amount');
 
-        // ── Ventes du mois ──
-        $monthAmount = $shop->sales()
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->where('status', 'completed')
-            ->sum('total_amount');
+            // ── CA du mois ──
+            $monthAmount = $shop->sales()
+                ->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)
+                ->where('status', 'completed')->sum('total_amount');
 
-        // ── Produits en stock bas ──
-        $lowStockCount = $shop->products()
-            ->where('is_active', true)
-            ->whereColumn('stock_qty', '<=', 'stock_alert')
-            ->count();
+            // ── Stock bas ──
+            $lowStockCount = $shop->products()
+                ->where('is_active', true)->whereColumn('stock_qty', '<=', 'stock_alert')->count();
 
-        // ── Calcul des tendances ──
+            // ── Sparkline 7 jours — 1 seule requête ──
+            $from     = now()->subDays(6)->startOfDay();
+            $salesMap = $shop->sales()
+                ->where('status', 'completed')->where('created_at', '>=', $from)
+                ->selectRaw('DATE(created_at) as day, SUM(total_amount) as total')
+                ->groupBy('day')->get()->keyBy('day');
+
+            $last7Days = collect(range(6, 0))->map(
+                fn ($i) => (float) ($salesMap->get(now()->subDays($i)->toDateString())?->total ?? 0)
+            )->toArray();
+
+            // ── Crédits en cours ──
+            $pendingCreditsAmount = $shop->credits()->whereIn('status', ['pending', 'partial'])->sum('remaining_amount');
+            $pendingCreditsCount  = $shop->credits()->whereIn('status', ['pending', 'partial'])->count();
+
+            // ── Dettes fournisseurs ──
+            $supplierDebt      = $shop->suppliers()->where('balance', '>', 0)->sum('balance');
+            $supplierDebtCount = $shop->suppliers()->where('balance', '>', 0)->count();
+
+            // ── Dépenses ──
+            $todayExpenses = $shop->expenses()->whereDate('spent_at', today())->sum('amount');
+            $monthExpenses = $shop->expenses()
+                ->whereMonth('spent_at', now()->month)->whereYear('spent_at', now()->year)->sum('amount');
+
+            return compact(
+                'todayCount', 'todayAmount', 'yesterdayCount', 'yesterdayAmount',
+                'monthAmount', 'lowStockCount', 'last7Days',
+                'pendingCreditsAmount', 'pendingCreditsCount',
+                'supplierDebt', 'supplierDebtCount',
+                'todayExpenses', 'monthExpenses'
+            );
+        });
+
+        extract($d);
+
+        // ── Calcul des tendances (hors cache — instantané) ──
         $salesTrend  = $this->getTrend($todayCount, $yesterdayCount);
         $amountTrend = $this->getTrend($todayAmount, $yesterdayAmount);
-
-        // ── Graphe sparkline des 7 derniers jours ──
-        $last7Days = collect(range(6, 0))->map(function ($daysAgo) use ($shop) {
-            return $shop->sales()
-                ->whereDate('created_at', now()->subDays($daysAgo))
-                ->where('status', 'completed')
-                ->sum('total_amount');
-        })->toArray();
 
         return [
             // ── Stat 1 : CA du jour ──
@@ -94,6 +124,21 @@ class StatsOverviewWidget extends BaseWidget
                         : 'heroicon-m-exclamation-triangle'
                 )
                 ->color($lowStockCount === 0 ? 'success' : 'danger'),
+
+            Stat::make('📒 Crédits en cours', $pendingCreditsCount . ' crédit(s)')
+                ->description(number_format($pendingCreditsAmount, 0, ',', ' ') . ' KMF à récupérer')
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->color($pendingCreditsCount > 0 ? 'warning' : 'success'),
+
+            Stat::make('🚚 Dettes fournisseurs', $supplierDebtCount . ' fournisseur(s)')
+                ->description(number_format($supplierDebt, 0, ',', ' ') . ' KMF à payer')
+                ->descriptionIcon('heroicon-m-truck')
+                ->color($supplierDebtCount > 0 ? 'warning' : 'success'),
+
+            Stat::make('💳 Dépenses du mois', number_format($monthExpenses, 0, ',', ' ') . ' KMF')
+                ->description('Dont ' . number_format($todayExpenses, 0, ',', ' ') . ' KMF aujourd\'hui')
+                ->descriptionIcon('heroicon-m-arrow-trending-down')
+                ->color('danger'),
         ];
     }
 
@@ -136,4 +181,6 @@ class StatsOverviewWidget extends BaseWidget
             'color' => 'gray',
         ];
     }
+
+    
 }

@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class Sale extends Model
 {
@@ -16,13 +18,17 @@ class Sale extends Model
         'total_amount',
         'paid_amount',
         'change_amount',
+        'discount_amount',
         'note',
+        'customer_id',
+        'payment_type',
     ];
 
     protected $casts = [
-        'total_amount'  => 'decimal:2',
-        'paid_amount'   => 'decimal:2',
-        'change_amount' => 'decimal:2',
+        'total_amount'    => 'decimal:2',
+        'paid_amount'     => 'decimal:2',
+        'change_amount'   => 'decimal:2',
+        'discount_amount' => 'decimal:2',
     ];
 
     // ─────────────────────────────────────────────
@@ -44,25 +50,43 @@ class Sale extends Model
         return $this->hasMany(SaleItem::class);
     }
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function credit(): HasOne
+    {
+        return $this->hasOne(Credit::class);
+    }
+
     // ─────────────────────────────────────────────
     // METHODES STATIQUES
     // ─────────────────────────────────────────────
 
     /**
-     * Générer une référence unique
-     * Format : VNT-20240517-0001
+     * Générer une référence unique pour ce shop
+     * Format : VNT-20260522-0001
+     *
+     * Utilise la dernière référence du jour pour éviter
+     * les race conditions.
      */
     public static function generateReference(int $shopId): string
     {
-        $date   = now()->format('Ymd');
-        $prefix = "VNT-{$date}";
+        return DB::transaction(function () use ($shopId) {
+            $date   = now()->format('Ymd');
+            $prefix = "VNT-{$date}";
 
-        // Compter les ventes du jour pour ce shop
-        $count = static::where('shop_id', $shopId)
-            ->whereDate('created_at', today())
-            ->count();
+            $lastSale = static::where('shop_id', $shopId)
+                ->where('reference', 'like', $prefix . '%')
+                ->lockForUpdate()
+                ->orderBy('reference', 'desc')
+                ->first();
 
-        return $prefix . '-' . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+            $lastNumber = $lastSale ? (int) substr($lastSale->reference, -4) : 0;
+
+            return $prefix . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        });
     }
 
     // ─────────────────────────────────────────────
@@ -71,7 +95,7 @@ class Sale extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'completed' => '✅ Complétée',
             'cancelled' => '❌ Annulée',
             default     => $this->status,

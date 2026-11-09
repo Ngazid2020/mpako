@@ -63,7 +63,7 @@ class Product extends Model
      */
     public function isLowStock(): bool
     {
-        return $this->stock_qty <= $this->stock_alert;
+        return $this->stock_alert > 0 && $this->stock_qty <= $this->stock_alert;
     }
 
     /**

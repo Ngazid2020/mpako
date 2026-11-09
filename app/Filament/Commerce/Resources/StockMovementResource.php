@@ -42,9 +42,8 @@ class StockMovementResource extends Resource
                             ->native(false)
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // Afficher le stock actuel après sélection
                                 if ($state) {
-                                    $product = Product::find($state);
+                                    $product = Filament::getTenant()->products()->find($state);
                                     $set('current_stock', $product?->stock_qty ?? 0);
                                 }
                             }),
@@ -118,7 +117,8 @@ class StockMovementResource extends Resource
 
                 Tables\Columns\TextColumn::make('reason')
                     ->label('Motif')
-                    ->limit(30),
+                    ->limit(30)
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Par')
