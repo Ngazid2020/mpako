@@ -182,7 +182,10 @@ Compte admin par défaut : `admin@beez.km` / `password`
     3. l'ajouter à `OPERATION_LABELS` ;
     4. ajouter un test dans `OfflineModeTest`.
   - Un élément créé hors ligne se référence par `<x>_local_id`.
-  - Si `public/serviceworker.js` change, incrémenter `CACHE_NAME`.
+  - Si `public/serviceworker.js` change, incrémenter `CACHE_NAME`. Toujours faire `response.clone()` **avant** de rendre la réponse au navigateur.
+  - Toute modification du mode hors ligne se valide avec `npm run build` puis `npm run test:e2e` (Chrome réel). Les tests PHP ne voient ni le service worker ni IndexedDB.
+- **Création de boutique** : toujours passer par `App\Services\ShopOnboarding::createShop()`. Il gère le rattachement, le rôle `owner` (seulement sans rôle existant), le portefeuille et l'essai gratuit d'un mois (une fois par utilisateur). Il est utilisé par l'inscription « Commencer » (`Pages/Auth/Register`) et par `RegisterShop`.
+- **CI/CD** : `.github/workflows/ci.yml` (tests PHP + E2E bloquants, Pint informatif) et `deploy.yml` (SSH, `scripts/deploy.sh`). Une nouvelle commande de déploiement s'ajoute dans `scripts/deploy.sh`. Les données du test E2E viennent de `E2EOfflineSeeder`. Voir `docs/06-CICD.md`.
 - **Méthodologie** : Agile/Scrum. Backlog dans `docs/scrum/PRODUCT-BACKLOG.md`, Definition of Done dans `docs/scrum/SCRUM-GUIDE.md`. Toute nouvelle page Filament s'ajoute à `tests/Feature/FilamentSmokeTest.php`.
 
 ---

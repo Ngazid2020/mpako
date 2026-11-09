@@ -1,16 +1,16 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-BuFpHdbV.css",
+    "file": "assets/app-B_fJM-Sb.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/commerce/theme.css": {
-    "file": "assets/theme-BPXzbaxy.css",
+    "file": "assets/theme-Bz_nY95D.css",
     "src": "resources/css/filament/commerce/theme.css",
     "isEntry": true
   },
   "resources/css/offline.css": {
-    "file": "assets/offline-CewS7osL.css",
+    "file": "assets/offline-YzG-AVAA.css",
     "src": "resources/css/offline.css",
     "isEntry": true
   },
@@ -27,7 +27,7 @@
     "isEntry": true
   },
   "resources/js/offline/app.js": {
-    "file": "assets/app-BFkd2ACK.js",
+    "file": "assets/app-5esE7Oor.js",
     "name": "app",
     "src": "resources/js/offline/app.js",
     "isEntry": true

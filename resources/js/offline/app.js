@@ -38,6 +38,7 @@ window.offlineApp = (config) => ({
 
     // État
     online: navigator.onLine,
+    wasOffline: !navigator.onLine,
     syncing: false,
     ready: false,
     snapshot: null,
@@ -78,7 +79,7 @@ window.offlineApp = (config) => ({
         this.ready = true;
 
         window.addEventListener('online', () => { this.online = true; this.sync(); });
-        window.addEventListener('offline', () => { this.online = false; });
+        window.addEventListener('offline', () => { this.online = false; this.wasOffline = true; });
         setInterval(() => {
             if (this.online && (this.queue.some((o) => o.status !== 'error') || this.isStale())) this.sync();
         }, AUTO_SYNC_MS);
@@ -188,6 +189,11 @@ window.offlineApp = (config) => ({
             await kv.set(this.keys.meta, clone(this.meta));
             this.authError = null;
             this.rebuild();
+
+            // Préparation en arrière-plan depuis le panel (iframe invisible) : prévenir la page parente
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'beez-offline-ready', slug: config.shop.slug, userId: config.user.id }, location.origin);
+            }
 
             if (synced > 0) this.notify(`${synced} opération(s) synchronisée(s)`);
             if (this.errorCount > 0) this.notify(`${this.errorCount} opération(s) refusée(s) par le serveur — voir l'onglet Sync`, 'error');

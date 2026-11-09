@@ -460,6 +460,9 @@
                 <h2 class="text-4xl sm:text-6xl font-black text-gray-900 mb-4">
                     Prix <span class="gradient-text">simples</span>
                 </h2>
+                <p class="text-lg text-gray-600">
+                    🎁 Toute nouvelle boutique démarre avec <strong>1 mois d'essai gratuit</strong>, sans engagement.
+                </p>
             </div>
 
             <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto stagger-container">

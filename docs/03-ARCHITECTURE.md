@@ -418,7 +418,7 @@ Le panel Filament repose sur Livewire : chaque interaction est un aller-retour s
 | Synchronisation | `resources/js/offline/sync.js` | Push de la file, puis `pull?light=1` qui devient le nouveau snapshot |
 | Stockage | `resources/js/offline/db.js` | IndexedDB `beez-offline`, clés préfixées `{slug}:{userId}` |
 | Cache | `public/serviceworker.js` (`beez-v2`) | Page et assets `/build/assets/*` en cache ; sans réseau, toute page `/commerce/{slug}/…` affiche l'application hors ligne |
-| Pont avec le panel | `filament/components/offline-bridge.blade.php` + entrée de menu « Mode hors ligne » | Préchargement du cache (au plus toutes les 30 min), bannière « Connexion perdue » |
+| Pont avec le panel | `filament/components/offline-bridge.blade.php` + entrée de menu « Mode hors ligne » | **Préparation en arrière-plan** : l'application hors ligne est chargée dans une iframe invisible (toutes les 15 min). Elle met en cache la page et les assets, obtient le token et télécharge les données, puis prévient le panel (`postMessage` `beez-offline-ready`). « Prêt » signifie : page en cache **et** données synchronisées. Détection de coupure : événement `offline` + sonde `HEAD /up` toutes les 20 s, 2 échecs = hors ligne. **Bascule automatique** après 5 s, annulable (« Rester ici »), seulement si l'application est en cache ; sinon un message invite à se reconnecter une fois |
 
 ```mermaid
 sequenceDiagram
@@ -453,6 +453,7 @@ sequenceDiagram
   - Les données du commerce sont stockées en clair dans le navigateur.
   - L'onglet Sync propose « Effacer les données de ce poste », qui révoque aussi le token.
   - Les permissions affichées servent seulement à masquer des actions ; le serveur revérifie tout.
+- **Service worker.** Toute réponse mise en cache doit être copiée (`clone()`) **avant** d'être rendue au navigateur. Sinon la copie échoue en silence (bug corrigé au Sprint 2).
 - **Limites.**
   - Il faut une première ouverture en ligne par appareil.
   - Il faut HTTPS en production.
@@ -510,7 +511,7 @@ Générées par `Model::generateReference($shopId)` — ne jamais les construire
 
 ## 11. Module Portefeuille / Abonnements (en cours)
 
-État au Sprint 1 :
+État au Sprint 2 :
 
 | Élément | État |
 |---|---|
@@ -521,9 +522,25 @@ Générées par `Model::generateReference($shopId)` — ne jamais les construire
 | `Wallet::credit()` / `debit()` atomiques, refus solde négatif | ✅ |
 | Recharge admin via `Wallet::credit()` (pré-sélection `?wallet_id=`) | ✅ |
 | Portefeuille commerçant en lecture seule | ✅ |
-| Création automatique du portefeuille à la création du shop | ❌ backlog |
+| Création automatique du portefeuille à la création du shop | ✅ (`ShopOnboarding`) |
+| Essai gratuit d'un mois à la création (forfait `is_trial`, une fois par utilisateur) | ✅ |
 | Débit de l'abonnement / renouvellement / expiration (job) | ❌ backlog |
-| Blocage d'accès si abonnement expiré (`Shop::canUseSystem()`) | ❌ backlog |
+| Blocage d'accès si abonnement expiré (`Shop::canUseSystem()`) | ❌ backlog (US-503) : à la fin de l'essai, rien n'est encore bloqué |
+
+### Inscription en libre-service et essai gratuit
+
+Le bouton « Commencer » mène à `/commerce/register` (`App\Filament\Commerce\Pages\Auth\Register`). Ce formulaire unique crée le compte et la boutique, puis s'appuie sur le flux natif de Filament : limitation des tentatives, transaction, connexion, régénération de session et redirection vers le tableau de bord.
+
+`App\Services\ShopOnboarding::createShop()` est utilisé aussi par `RegisterShop` (« créer un autre commerce »). Il fait, dans une seule transaction :
+1. la création du commerce, avec un slug unique (suffixe `-2`, `-3`… si besoin) ;
+2. le rattachement du créateur (`shop_user`) ;
+3. l'attribution du rôle `owner`, **seulement si l'utilisateur n'a aucun rôle**. Les rôles sont globaux : un employé existant ne doit pas devenir propriétaire partout (US-101) ;
+4. la création du portefeuille (solde 0, brouillon) ;
+5. l'essai gratuit : un `Subscription` sur le forfait « Essai gratuit » (`subscription_plans.is_trial = true`, 0 KMF, créé à la demande), de maintenant à **+1 mois**, et le report de la date de fin dans `shops.subscription_expires_at`. Il n'est accordé **qu'une fois par utilisateur** : une deuxième boutique n'a pas d'essai.
+
+Les comptes inscrits sont **approuvés d'office** (`is_approved = true`). Le super-admin peut toujours les désactiver. L'ancienne page « compte en attente » (`register.pending`) n'est plus utilisée par l'inscription.
+
+Le bandeau « Essai gratuit : encore N jours » est affiché par le render hook `CONTENT_START` du panel Commerce (`filament/components/trial-banner.blade.php`).
 
 ---
 
@@ -550,6 +567,8 @@ En production : cron `* * * * * php artisan schedule:run` et un worker `php arti
 | `tests/Feature/Api/SyncPushTest` | Idempotence, cross-tenant, permissions, achat poussé validé |
 | `tests/Feature/FilamentSmokeTest` | Chargement des pages admin et commerce clés |
 | `tests/Feature/OfflineModeTest` | Page hors ligne (accès), token par poste, `pull?light=1`, création hors ligne de produits, clients et fournisseurs, références `*_local_id` dans un même lot et d'un lot à l'autre, `update_product` sans effet sur le stock |
+| `tests/Feature/ShopSignupTrialTest` | « Commencer » → compte + boutique + rôle + portefeuille + essai d'un mois, connexion automatique ; essai unique par utilisateur ; slug unique ; pas d'élévation de rôle d'un employé |
+| `tests/e2e/offline-mode.mjs` (`npm run test:e2e`) | **Chrome réel** : connexion, préparation automatique, coupure réseau, bascule, vente hors ligne, retour réseau et synchronisation. Variables `E2E_BASE_URL`, `E2E_PHONE`, `E2E_PASSWORD`, `E2E_SLUG`, `E2E_PRODUCT` |
 | `tests/Feature/CaisseProductListTest` | Liste des produits affichée dès l'ouverture de la caisse, filtrage par la recherche |
 | `tests/Feature/Concerns/BuildsShopFixtures` | Fabrique de données de test |
 
@@ -594,6 +613,7 @@ npm run dev
 
 - `APP_DEBUG=false`, MySQL, `php artisan migrate --force`, `php artisan optimize`, `npm run build`.
 - **HTTPS obligatoire** : sans HTTPS, ni le service worker ni le mode hors ligne ne fonctionnent.
+- **Déploiement automatisé** : GitHub Actions, puis SSH et `scripts/deploy.sh`. Voir [06-CICD.md](06-CICD.md).
 - Après chaque déploiement qui modifie `public/serviceworker.js`, incrémenter `CACHE_NAME` (`beez-vN`) pour forcer le renouvellement du cache.
 - Cron du scheduler + worker de queue.
 - Clés VAPID (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`) pour les notifications push.
@@ -611,6 +631,6 @@ Voir le [Product Backlog](scrum/PRODUCT-BACKLOG.md) pour le détail et la priori
 4. Suppression d'un produit en cascade sur `sale_items` / `purchase_items` / `stock_movements` (historique perdu) → désactivation / soft delete.
 5. `credits.sale_id` en `cascadeOnDelete` : la suppression d'une vente efface le crédit sans passer par l'observer.
 6. Pull de sync : snapshot initial sans pagination (historique complet des ventes). Le mode web utilise `light=1`, mais recharge le snapshot complet après chaque synchronisation.
-9. Mode hors ligne web : aucun test navigateur de bout en bout (Playwright/Dusk). Les données locales ne sont pas chiffrées.
+9. Mode hors ligne web : les données locales ne sont pas chiffrées (le test navigateur tourne en CI).
 7. Module abonnements incomplet (débit, expiration, blocage).
 8. Stock plancher à 0 masquant les survente (décision métier à confirmer).

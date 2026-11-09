@@ -1,7 +1,8 @@
-var CACHE_NAME = 'beez-v2';
+var CACHE_NAME = 'beez-v3';
 
 var STATIC_ASSETS = [
     '/offline',
+    '/manifest.json',
     '/images/icons/icon-72x72.png',
     '/images/icons/icon-96x96.png',
     '/images/icons/icon-128x128.png',
@@ -52,16 +53,20 @@ function offlineAppPath(slug) {
 }
 
 // Met en cache la page de l'application hors ligne + ses assets /build/assets/*
+// ⚠️ Les copies (clone) sont faites IMMÉDIATEMENT, avant que la réponse ne soit rendue
+// au navigateur : une fois son corps en cours de lecture, clone() échoue.
 function cacheOfflineApp(path, response) {
     if (!response || !response.ok || response.redirected || response.type !== 'basic') {
         return Promise.resolve();
     }
+    var forCache = response.clone();
+    var forScan = response.clone();
     return caches.open(CACHE_NAME).then(function (cache) {
-        return response.clone().text().then(function (html) {
+        return forScan.text().then(function (html) {
             var assets = html.match(/\/build\/assets\/[^"'\s)<>]+/g) || [];
             var unique = assets.filter(function (a, i) { return assets.indexOf(a) === i; });
             return Promise.all([
-                cache.put(path, response.clone()),
+                cache.put(path, forCache),
                 Promise.all(unique.map(function (asset) {
                     return cache.match(asset).then(function (hit) {
                         return hit || fetch(asset).then(function (r) { if (r.ok) return cache.put(asset, r); }).catch(function () {});
@@ -69,7 +74,7 @@ function cacheOfflineApp(path, response) {
                 })),
             ]);
         });
-    });
+    }).catch(function () {});
 }
 
 // Préchargement demandé par le panel Filament (renderHook « offline-bridge »)

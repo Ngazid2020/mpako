@@ -45,6 +45,21 @@ class OfflineModeTest extends TestCase
             ->assertSee($shop->name);
     }
 
+    public function test_panel_pages_embed_the_automatic_offline_switch(): void
+    {
+        $shop = $this->makeShop();
+        $this->actingAs($this->makeMember($shop, ['view_any_purchase']));
+
+        // Le pont (cache + détection + bascule automatique) est présent sur les pages du panel
+        $this->get("/commerce/{$shop->slug}/purchases")
+            ->assertOk()
+            ->assertSee('beez-offline-ready', false)
+            ->assertSee("/commerce/{$shop->slug}/hors-ligne", false);
+
+        // Sonde de connectivité utilisée pour détecter « Wi-Fi sans Internet »
+        $this->call('HEAD', '/up')->assertOk();
+    }
+
     public function test_token_is_issued_per_device_and_works_on_the_api(): void
     {
         $shop = $this->makeShop();

@@ -14,6 +14,7 @@ class SubscriptionPlan extends Model
         'duration_days',
         'is_active',
         'is_default',
+        'is_trial',
     ];
 
     protected $casts = [
@@ -21,6 +22,7 @@ class SubscriptionPlan extends Model
         'duration_days' => 'integer',
         'is_active' => 'boolean',
         'is_default' => 'boolean',
+        'is_trial' => 'boolean',
     ];
 
     // ─────────────────────────────────────────────

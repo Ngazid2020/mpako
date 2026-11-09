@@ -61,14 +61,10 @@ class RegisterShop extends RegisterTenant
             ]);
     }
 
-    // Après la création, rattacher l'utilisateur au commerce
+    // Création via le même service que l'inscription : rattachement, rôle, portefeuille,
+    // essai gratuit d'un mois (uniquement si l'utilisateur n'en a jamais eu).
     protected function handleRegistration(array $data): \App\Models\Shop
     {
-        $shop = \App\Models\Shop::create($data);
-
-        // Rattacher l'utilisateur actuel comme membre du commerce
-        $shop->members()->attach(auth()->user());
-
-        return $shop;
+        return app(\App\Services\ShopOnboarding::class)->createShop(auth()->user(), $data);
     }
 }

@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 ## [Non publié] — Sprint 2 « Mode hors ligne web » (2026-11-09)
 
 ### ⚠️ À faire au déploiement
+- `php artisan migrate` : ajoute `subscription_plans.is_trial`.
 - `npm run build`, car de nouveaux assets sont ajoutés (`resources/css/offline.css`, `resources/js/offline/app.js`).
 - HTTPS obligatoire en production pour le service worker.
 - Le service worker passe en `beez-v2` : l'ancien cache est purgé automatiquement.
@@ -18,18 +19,47 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
   - fournisseurs : création, paiement ;
   - dépenses.
 - Synchronisation automatique au retour du réseau (et toutes les 30 s), file d'opérations avec effets visibles immédiatement, onglet « Sync » (opérations refusées avec motif, Réessayer / Abandonner, effacement des données du poste).
-- Entrée de menu « Mode hors ligne » et bannière « Connexion perdue » dans le panel Commerce, avec préchargement automatique du cache.
+- Entrée de menu « Mode hors ligne » et **bascule automatique** du panel vers le mode hors ligne quand la connexion tombe : compte à rebours de 5 s, annulable. La coupure est détectée par l'événement navigateur et par une sonde `/up` (Wi-Fi sans Internet). Le cache est préchargé automatiquement. Au retour du réseau, un bandeau « tout est synchronisé » propose de revenir à la plateforme.
 - Token API par poste : `POST /commerce/{slug}/hors-ligne/token`.
 - Sync push : opérations `create_product`, `update_product`, `create_customer`, `create_supplier`.
 - Sync push : références `*_local_id` (client, fournisseur, produit, achat, crédit, vente) résolues via `sync_operations`, dans un même lot ou d'un lot à l'autre (US-402).
 - Sync pull : `categories`, `units`, et paramètre `light=1`.
-- Tests : `OfflineModeTest`, `CaisseProductListTest` (34 tests au total).
+- Tests : `OfflineModeTest`, `CaisseProductListTest`.
+
+- **Inscription en libre-service avec essai gratuit d'un mois** : le bouton « Commencer » mène à un formulaire unique, compte + boutique. Le compte est actif immédiatement et l'utilisateur connecté sur sa boutique. À la création, il reçoit :
+  - le rôle `owner` (s'il n'a aucun rôle) ;
+  - un portefeuille ;
+  - un abonnement « Essai gratuit » (0 KMF, 1 mois, une seule fois par utilisateur).
+
+  Un bandeau « Essai gratuit : encore N jours » s'affiche dans le panel. La logique est centralisée dans `App\Services\ShopOnboarding`, aussi utilisée pour « Créer un autre commerce ».
+- Migration `subscription_plans.is_trial`. Le forfait d'essai est créé automatiquement.
+- Tests : `ShopSignupTrialTest` (39 tests PHP au total) et **test navigateur de bout en bout** du mode hors ligne : `npm run test:e2e` (`tests/e2e/offline-mode.mjs`, puppeteer-core + Chrome).
 
 ### Modifié
+- Les nouveaux inscrits ne passent plus par la validation admin (`is_approved = true` d'office). La page « compte en attente » n'est plus utilisée à l'inscription.
+- Thème Filament Commerce : les vues `resources/views/filament/components/**` sont incluses dans la compilation Tailwind.
 - Caisse (« Boutique ») : la liste des produits actifs est affichée dès l'ouverture (en stock d'abord, 60 au maximum) ; la recherche ne fait que filtrer.
 - Service worker : assets `/build/assets/*` en cache-first ; sans réseau, une page du commerce affiche l'application hors ligne au lieu de la page générique `/offline`.
 
+### CI/CD
+- **Intégration continue** `.github/workflows/ci.yml`, à chaque push et pull request :
+  - tests PHP, après build des assets ;
+  - test navigateur du mode hors ligne (`E2EOfflineSeeder` + Chrome) ;
+  - style Pint, en informatif.
+- **Déploiement continu** `.github/workflows/deploy.yml`, après une CI verte sur `master` (ou manuellement) :
+  - checkout du commit testé sur le serveur ;
+  - assets construits en CI puis envoyés par `rsync` ;
+  - `scripts/deploy.sh` (maintenance, composer, migrations, caches, workers) ;
+  - vérification `/up`.
+
+  Il est inactif tant que les secrets de l'environnement `production` ne sont pas configurés. Voir [docs/06-CICD.md](docs/06-CICD.md).
+
 ### Corrigé
+- **Mode hors ligne inaccessible ou vide** (constaté en test réel) :
+  - le service worker copiait la réponse **après** l'avoir rendue au navigateur, donc la page `/hors-ligne` n'était jamais mise en cache ;
+  - les données (token, produits, clients…) n'étaient téléchargées qu'à l'ouverture manuelle du mode hors ligne.
+
+  Désormais, le panel prépare tout en arrière-plan (iframe invisible, toutes les 15 min) et le cache passe en `beez-v3`. `manifest.json` est aussi mis en cache.
 - Les invités sur une route web protégée hors panel (PDF, mode hors ligne) obtenaient une erreur 500 (`Route [login] not defined`). Ils sont maintenant redirigés vers `/commerce/login`.
 
 ## [Non publié] — Sprint 1 « Stabilisation » (2026-11-09)

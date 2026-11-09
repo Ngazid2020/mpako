@@ -7,6 +7,7 @@
 | 03 | [Architecture technique](03-ARCHITECTURE.md) | Développeurs | Stack, multi-tenancy, RBAC, modèle de données, observers, flux, sécurité, déploiement |
 | 04 | [Référence API mobile](04-API.md) | Développeurs mobile | Endpoints, permissions, sync offline, notes de migration pour `beez-mobile` |
 | 05 | [Rapport d'audit (nov. 2026)](05-AUDIT-2026-11.md) | Équipe, PO | 78 constats, sévérité, statut de correction |
+| 06 | [CI/CD](06-CICD.md) | Développeurs, exploitation | Pipeline GitHub Actions, déploiement automatique, configuration serveur, retour arrière |
 
 ## Agile / Scrum
 

@@ -1,0 +1,125 @@
+# Déploiement continu — se déclenche quand la CI est VERTE sur master
+# (ou manuellement depuis l'onglet Actions).
+#
+# Secrets à créer dans GitHub → Settings → Environments → « production » :
+#   SSH_HOST         adresse du serveur (ex. beez.km ou 1.2.3.4)
+#   SSH_USER         utilisateur de déploiement
+#   SSH_PRIVATE_KEY  clé privée (la clé publique dans ~/.ssh/authorized_keys du serveur)
+#   SSH_KNOWN_HOSTS  sortie de `ssh-keyscan -H <SSH_HOST>`
+#   DEPLOY_PATH      dossier de l'application sur le serveur (clone git du dépôt)
+#   SSH_PORT         (optionnel, 22 par défaut)
+#
+# Variable (pas un secret) dans le même environnement :
+#   APP_URL          (optionnel) URL publique, ex. https://beez.km — vérification finale /up
+#
+# Tant que ces secrets ne sont pas définis, le workflow s'arrête proprement sans déployer.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Production
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+    steps:
+      - name: Vérifier la configuration
+        id: config
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$DEPLOY_PATH" ]; then
+            echo "::notice::Déploiement ignoré : secrets SSH_HOST / DEPLOY_PATH non configurés (environnement production)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Construire les assets
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configurer SSH
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Mettre le code à jour sur le serveur
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "cd '$DEPLOY_PATH' && git fetch --quiet origin && git checkout --force --quiet '$SHA'"
+
+      - name: Envoyer les assets compilés
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT" \
+            public/build/ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/public/build/"
+
+      - name: Lancer le déploiement
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "cd '$DEPLOY_PATH' && bash scripts/deploy.sh"
+
+      - name: Vérifier que l'application répond
+        if: steps.config.outputs.ready == 'true'
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then echo "::notice::APP_URL non défini, vérification ignorée."; exit 0; fi
+          for i in $(seq 1 10); do
+            curl -sf "$APP_URL/up" > /dev/null && echo "✔ $APP_URL répond" && exit 0
+            sleep 3
+          done
+          echo "::error::$APP_URL/up ne répond pas après le déploiement" && exit 1
