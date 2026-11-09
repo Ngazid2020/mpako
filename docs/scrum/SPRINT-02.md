@@ -63,6 +63,7 @@
 | 👍 Ce qui a bien marché | 👎 À améliorer | 🎯 Actions |
 |---|---|---|
 | La réutilisation du protocole de sync mobile a évité de dupliquer les règles métier ; le serveur reste la seule source de vérité | La logique JavaScript n'a pas de suite de tests versionnée (seulement un contrôle ponctuel) | Ajouter Vitest pour `operations.js` (avec US-705) |
+| | **Défaut constaté par le PO** : hors ligne, la plateforme restait inaccessible. Deux causes invisibles aux tests PHP : la page n'était pas mise en cache (copie de la réponse trop tardive dans le service worker), et les données n'étaient pas préparées. | ✅ Corrigé, puis reproduit et validé dans un Chrome réel. Test `npm run test:e2e` ajouté. **Règle** : toute modification du mode hors ligne ou du service worker passe par ce test |
 | Le mécanisme générique `*_local_id` a aussi livré US-402 | Le test manuel du service worker demande `npm run build`, car `npm run dev` ne met pas les assets en cache | Documenté dans l'architecture ; prévoir un environnement de recette en HTTPS |
 
 ## 5. Métriques

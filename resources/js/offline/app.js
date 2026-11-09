@@ -190,6 +190,11 @@ window.offlineApp = (config) => ({
             this.authError = null;
             this.rebuild();
 
+            // Préparation en arrière-plan depuis le panel (iframe invisible) : prévenir la page parente
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'beez-offline-ready', slug: config.shop.slug, userId: config.user.id }, location.origin);
+            }
+
             if (synced > 0) this.notify(`${synced} opération(s) synchronisée(s)`);
             if (this.errorCount > 0) this.notify(`${this.errorCount} opération(s) refusée(s) par le serveur — voir l'onglet Sync`, 'error');
         } catch (e) {

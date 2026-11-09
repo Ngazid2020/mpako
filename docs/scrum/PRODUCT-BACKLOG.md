@@ -97,7 +97,7 @@ Avec une vélocité de 20 à 25 points par sprint, il faut compter **7 à 9 spri
 | US-702 | En tant que **propriétaire**, je veux gérer hors ligne mes clients et leurs remboursements, mes achats (création, validation, paiement), mes fournisseurs et mes dépenses. | 8 | Must | ✅ Sprint 2 |
 | US-703 | En tant que **propriétaire**, je veux que mes opérations hors ligne se synchronisent automatiquement au retour du réseau, sans doublon, y compris celles qui utilisent un client ou un produit créé hors ligne. | 5 | Must | ✅ Sprint 2 |
 | US-704 | En tant qu'**utilisateur du panel**, je veux être basculé vers le mode hors ligne quand la connexion tombe, sans rien avoir préparé (préchargement automatique). | 3 | Must | ✅ Sprint 2 |
-| US-705 | En tant qu'**équipe**, je veux des tests navigateur de bout en bout (Playwright) : couper le réseau, vendre, rétablir, vérifier la base. | 5 | Should | À faire |
+| US-705 | En tant qu'**équipe**, je veux des tests navigateur de bout en bout : couper le réseau, vendre, rétablir, vérifier la base. | 5 | Should | Partiel : scénario `npm run test:e2e` livré, reste l'intégration en CI |
 | US-706 | En tant que **propriétaire**, je veux consulter hors ligne l'historique récent des ventes et un résumé du jour. | 5 | Could | À faire |
 | US-707 | En tant que **propriétaire sur un poste partagé**, je veux protéger les données locales par un code PIN (chiffrement). | 5 | Could | À faire |
 | US-708 | En tant qu'**utilisateur web**, je veux une resynchronisation incrémentale (`since`) plutôt qu'un snapshot complet à chaque cycle. | 3 | Should | À faire (après US-401) |

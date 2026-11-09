@@ -33,7 +33,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 
   Un bandeau « Essai gratuit : encore N jours » s'affiche dans le panel. La logique est centralisée dans `App\Services\ShopOnboarding`, aussi utilisée pour « Créer un autre commerce ».
 - Migration `subscription_plans.is_trial`. Le forfait d'essai est créé automatiquement.
-- Tests : `ShopSignupTrialTest`, soit 38 tests au total.
+- Tests : `ShopSignupTrialTest` (39 tests PHP au total) et **test navigateur de bout en bout** du mode hors ligne : `npm run test:e2e` (`tests/e2e/offline-mode.mjs`, puppeteer-core + Chrome).
 
 ### Modifié
 - Les nouveaux inscrits ne passent plus par la validation admin (`is_approved = true` d'office). La page « compte en attente » n'est plus utilisée à l'inscription.
@@ -42,6 +42,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - Service worker : assets `/build/assets/*` en cache-first ; sans réseau, une page du commerce affiche l'application hors ligne au lieu de la page générique `/offline`.
 
 ### Corrigé
+- **Mode hors ligne inaccessible ou vide** (constaté en test réel) :
+  - le service worker copiait la réponse **après** l'avoir rendue au navigateur, donc la page `/hors-ligne` n'était jamais mise en cache ;
+  - les données (token, produits, clients…) n'étaient téléchargées qu'à l'ouverture manuelle du mode hors ligne.
+
+  Désormais, le panel prépare tout en arrière-plan (iframe invisible, toutes les 15 min) et le cache passe en `beez-v3`. `manifest.json` est aussi mis en cache.
 - Les invités sur une route web protégée hors panel (PDF, mode hors ligne) obtenaient une erreur 500 (`Route [login] not defined`). Ils sont maintenant redirigés vers `/commerce/login`.
 
 ## [Non publié] — Sprint 1 « Stabilisation » (2026-11-09)

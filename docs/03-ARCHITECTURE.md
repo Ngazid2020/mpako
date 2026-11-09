@@ -418,7 +418,7 @@ Le panel Filament repose sur Livewire : chaque interaction est un aller-retour s
 | Synchronisation | `resources/js/offline/sync.js` | Push de la file, puis `pull?light=1` qui devient le nouveau snapshot |
 | Stockage | `resources/js/offline/db.js` | IndexedDB `beez-offline`, clés préfixées `{slug}:{userId}` |
 | Cache | `public/serviceworker.js` (`beez-v2`) | Page et assets `/build/assets/*` en cache ; sans réseau, toute page `/commerce/{slug}/…` affiche l'application hors ligne |
-| Pont avec le panel | `filament/components/offline-bridge.blade.php` + entrée de menu « Mode hors ligne » | Préchargement du cache (toutes les 30 min, ou immédiatement s'il manque). Détection de coupure : événement `offline` + sonde `HEAD /up` toutes les 20 s, 2 échecs = hors ligne. **Bascule automatique** après 5 s, annulable (« Rester ici »), seulement si l'application est en cache ; sinon un message invite à se reconnecter une fois |
+| Pont avec le panel | `filament/components/offline-bridge.blade.php` + entrée de menu « Mode hors ligne » | **Préparation en arrière-plan** : l'application hors ligne est chargée dans une iframe invisible (toutes les 15 min). Elle met en cache la page et les assets, obtient le token et télécharge les données, puis prévient le panel (`postMessage` `beez-offline-ready`). « Prêt » signifie : page en cache **et** données synchronisées. Détection de coupure : événement `offline` + sonde `HEAD /up` toutes les 20 s, 2 échecs = hors ligne. **Bascule automatique** après 5 s, annulable (« Rester ici »), seulement si l'application est en cache ; sinon un message invite à se reconnecter une fois |
 
 ```mermaid
 sequenceDiagram
@@ -453,6 +453,7 @@ sequenceDiagram
   - Les données du commerce sont stockées en clair dans le navigateur.
   - L'onglet Sync propose « Effacer les données de ce poste », qui révoque aussi le token.
   - Les permissions affichées servent seulement à masquer des actions ; le serveur revérifie tout.
+- **Service worker.** Toute réponse mise en cache doit être copiée (`clone()`) **avant** d'être rendue au navigateur. Sinon la copie échoue en silence (bug corrigé au Sprint 2).
 - **Limites.**
   - Il faut une première ouverture en ligne par appareil.
   - Il faut HTTPS en production.
@@ -567,6 +568,7 @@ En production : cron `* * * * * php artisan schedule:run` et un worker `php arti
 | `tests/Feature/FilamentSmokeTest` | Chargement des pages admin et commerce clés |
 | `tests/Feature/OfflineModeTest` | Page hors ligne (accès), token par poste, `pull?light=1`, création hors ligne de produits, clients et fournisseurs, références `*_local_id` dans un même lot et d'un lot à l'autre, `update_product` sans effet sur le stock |
 | `tests/Feature/ShopSignupTrialTest` | « Commencer » → compte + boutique + rôle + portefeuille + essai d'un mois, connexion automatique ; essai unique par utilisateur ; slug unique ; pas d'élévation de rôle d'un employé |
+| `tests/e2e/offline-mode.mjs` (`npm run test:e2e`) | **Chrome réel** : connexion, préparation automatique, coupure réseau, bascule, vente hors ligne, retour réseau et synchronisation. Variables `E2E_BASE_URL`, `E2E_PHONE`, `E2E_PASSWORD`, `E2E_SLUG`, `E2E_PRODUCT` |
 | `tests/Feature/CaisseProductListTest` | Liste des produits affichée dès l'ouverture de la caisse, filtrage par la recherche |
 | `tests/Feature/Concerns/BuildsShopFixtures` | Fabrique de données de test |
 
@@ -628,6 +630,6 @@ Voir le [Product Backlog](scrum/PRODUCT-BACKLOG.md) pour le détail et la priori
 4. Suppression d'un produit en cascade sur `sale_items` / `purchase_items` / `stock_movements` (historique perdu) → désactivation / soft delete.
 5. `credits.sale_id` en `cascadeOnDelete` : la suppression d'une vente efface le crédit sans passer par l'observer.
 6. Pull de sync : snapshot initial sans pagination (historique complet des ventes). Le mode web utilise `light=1`, mais recharge le snapshot complet après chaque synchronisation.
-9. Mode hors ligne web : aucun test navigateur de bout en bout (Playwright/Dusk). Les données locales ne sont pas chiffrées.
+9. Mode hors ligne web : le test navigateur (`npm run test:e2e`) n'est pas encore en CI (il demande Chrome et un serveur démarré). Les données locales ne sont pas chiffrées.
 7. Module abonnements incomplet (débit, expiration, blocage).
 8. Stock plancher à 0 masquant les survente (décision métier à confirmer).

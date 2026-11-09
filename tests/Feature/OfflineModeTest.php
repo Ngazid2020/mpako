@@ -53,7 +53,7 @@ class OfflineModeTest extends TestCase
         // Le pont (cache + détection + bascule automatique) est présent sur les pages du panel
         $this->get("/commerce/{$shop->slug}/purchases")
             ->assertOk()
-            ->assertSee('warm-offline', false)
+            ->assertSee('beez-offline-ready', false)
             ->assertSee("/commerce/{$shop->slug}/hors-ligne", false);
 
         // Sonde de connectivité utilisée pour détecter « Wi-Fi sans Internet »

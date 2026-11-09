@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-DVOMjS2V.css",
+    "file": "assets/app-B_fJM-Sb.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -10,7 +10,7 @@
     "isEntry": true
   },
   "resources/css/offline.css": {
-    "file": "assets/offline-BzC6Sy8g.css",
+    "file": "assets/offline-YzG-AVAA.css",
     "src": "resources/css/offline.css",
     "isEntry": true
   },
@@ -27,7 +27,7 @@
     "isEntry": true
   },
   "resources/js/offline/app.js": {
-    "file": "assets/app-BDd0X_3E.js",
+    "file": "assets/app-5esE7Oor.js",
     "name": "app",
     "src": "resources/js/offline/app.js",
     "isEntry": true
